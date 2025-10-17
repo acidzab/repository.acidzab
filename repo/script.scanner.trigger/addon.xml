@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="script.scanner.trigger" name="Scanner Trigger" version="1.3.3" provider-name="AcidZab">
+    <requires>
+        <import addon="xbmc.python" version="3.0.1"/>
+        <import addon="script.module.scansioni" version="1.0.8"/>
+    </requires>
+    <extension point="xbmc.python.script" library="default.py">
+        <provides>executable</provides>
+    </extension>
+    <extension point="kodi.context.item" library="context.py">
+        <item>
+            <label>Allinea al Kodi Centrale</label>
+            <visible>String.StartsWith(Container.FolderPath,smb) | String.StartsWith(Container.FolderPath,davs) |
+                String.StartsWith(Container.FolderPath,sources)
+            </visible>
+        </item>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary lang="it">Triggera le scansioni</summary>
+        <description lang="it">Scansiona le cartelle recepite dal db delle scansioni</description>
+        <platform>all</platform>
+        <license>GNU GENERAL PUBLIC LICENSE Version 2</license>
+        <assets>
+            <icon>icon.png</icon>
+        </assets>
+    </extension>
+</addon>

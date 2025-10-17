@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="context.playlist.append" name="Playlist Append" version="1.0.6" provider-name="AcidZab">
+    <requires>
+        <import addon="xbmc.python" version="3.0.1" />
+        <import addon="script.module.scansioni" version="1.0.8"/>
+    </requires>
+    <extension point="kodi.context.item" library="addon.py">
+        <item>
+            <label>Aggiungi ad una playlist</label>
+            <visible>Container.Content(songs)</visible>
+        </item>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary lang="en">Add media to a playlist.</summary>
+        <description lang="en">Add media to an existing basic playlist. Based on original Curti addon</description>
+        <platform>all</platform>
+        <license>GNU General Public License, v2</license>
+        <assets>
+            <icon>icon.png</icon>
+        </assets>
+    </extension>
+</addon>

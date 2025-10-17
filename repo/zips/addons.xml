@@ -1,0 +1,296 @@
+<?xml version='1.0' encoding='utf-8'?>
+<addons><addon id="context.music.downloader" name="Downloader" version="1.0.8" provider-name="AcidZab">
+    <requires>
+        <import addon="xbmc.python" version="3.0.1" />
+        <import addon="script.module.scansioni" version="1.0.8" />
+    </requires>
+    <extension point="kodi.context.item" library="addon.py">
+        <item>
+            <label>Download</label>
+            <visible>Container.Content(songs) | String.Contains(Container.FolderPath,playlists) |
+                Container.Content(albums)
+            </visible>
+        </item>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary>Scarica dall'archivio musicale</summary>
+        <description>Scarica singole tracce, album o playlist dell'archivio musicale</description>
+        <platform>all</platform>
+        <license>GNU General Public License, v2</license>
+        <email>gigi@gigi.com</email>
+        <assets>
+            <icon>icon.png</icon>
+        </assets>
+    </extension>
+</addon><addon id="context.playlist.append" name="Playlist Append" version="1.0.6" provider-name="AcidZab">
+    <requires>
+        <import addon="xbmc.python" version="3.0.1" />
+        <import addon="script.module.scansioni" version="1.0.8" />
+    </requires>
+    <extension point="kodi.context.item" library="addon.py">
+        <item>
+            <label>Aggiungi ad una playlist</label>
+            <visible>Container.Content(songs)</visible>
+        </item>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary lang="en">Add media to a playlist.</summary>
+        <description lang="en">Add media to an existing basic playlist. Based on original Curti addon</description>
+        <platform>all</platform>
+        <license>GNU General Public License, v2</license>
+        <assets>
+            <icon>icon.png</icon>
+        </assets>
+    </extension>
+</addon><addon id="context.playlist.remove" name="Playlist Item Remover" version="1.0.4" provider-name="AcidZab">
+    <requires>
+        <import addon="xbmc.python" version="3.0.1" />
+        <import addon="script.module.scansioni" version="1.0.8" />
+    </requires>
+    <extension point="kodi.context.item" library="addon.py">
+        <item>
+            <label>Rimuovi dalla playlist</label>
+            <visible>Container.Content(songs) + String.Contains(Container.FolderPath,playlists)</visible>
+        </item>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary>Rimuove una traccia dalla playlist</summary>
+        <description>Rimuove la traccia selezionata all'interno della playlist</description>
+        <platform>all</platform>
+        <license>GNU General Public License, v2</license>
+        <email>gigi@gigi.com</email>
+        <assets>
+            <icon>icon.png</icon>
+        </assets>
+    </extension>
+</addon><addon id="repository.acidzab" name="AcidZab Repository" version="1.0.0" provider-name="AcidZab">
+    <extension point="xbmc.addon.repository" name="AcidZab Repository">
+        <dir>
+            <info compressed="false">https://raw.githubusercontent.com/acidzab/repository.acidzab/master/repo/zips/addons.xml</info>
+            <checksum>https://raw.githubusercontent.com/acidzab/repository.acidzab/master/repo/zips/addons.xml.md5</checksum>
+            <datadir zip="true">https://raw.githubusercontent.com/acidzab/repository.acidzab/master/repo/zips/</datadir>
+        </dir>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary>AcidZab Repository</summary>
+        <description>AcidZab Repository for music server</description>
+        <disclaimer />
+        <platform>all</platform>
+        <assets>
+            <icon>icon.png</icon>
+            <fanart>fanart.jpg</fanart>
+        </assets>
+    </extension>
+</addon><addon id="script.alphabetic.library" name="Alphabetic Library" version="1.0.0" provider-name="AcidZab">
+    <requires>
+        <import addon="xbmc.python" version="3.0.1" />
+    </requires>
+    <extension point="xbmc.python.script" library="default.py">
+        <provides>executable</provides>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary lang="it">Genera le viste alfabetiche</summary>
+        <description lang="it">Script per generare le viste suddivise alfabeticamente per artisti, album e compilation
+        </description>
+        <platform>all</platform>
+        <license>GNU GENERAL PUBLIC LICENSE Version 2</license>
+        <assets>
+            <icon>icon.png</icon>
+        </assets>
+    </extension>
+</addon><addon id="script.file.viewer" name="File Viewer" version="1.1.7" provider-name="AcidZab">
+    <requires>
+        <import addon="xbmc.python" version="3.0.1" />
+        <import addon="script.module.scansioni" version="1.0.8" />
+    </requires>
+    <extension point="xbmc.python.script" library="default.py">
+        <provides>executable</provides>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary lang="it">Switcha la vista dei file in miniatura</summary>
+        <description lang="it">Script per forzare la view in miniature sui file per la skin Confluence</description>
+        <platform>all</platform>
+        <license>GNU GENERAL PUBLIC LICENSE Version 2</license>
+        <assets>
+            <icon>icon.png</icon>
+        </assets>
+    </extension>
+</addon><addon id="script.genres.preloader" name="Genres Preloader" version="1.0.3" provider-name="AcidZab">
+    <requires>
+        <import addon="xbmc.python" version="3.0.1" />
+    </requires>
+    <extension point="xbmc.python.script" library="default.py">
+        <provides>executable</provides>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary lang="it">Genera la vista degli album per genere</summary>
+        <description lang="it">Script per generare la vista degli album raggruppati per genere</description>
+        <platform>all</platform>
+        <license>GNU GENERAL PUBLIC LICENSE Version 2</license>
+        <assets>
+            <icon>icon.png</icon>
+        </assets>
+    </extension>
+</addon><addon id="script.label.preloader" name="Label Preloader" version="3.1.0" provider-name="AcidZab">
+    <requires>
+        <import addon="xbmc.python" version="3.0.1" />
+        <import addon="script.module.unidecode" version="1.3.6" />
+        <import addon="script.module.scansioni" version="1.0.8" />
+    </requires>
+    <extension point="xbmc.python.script" library="default.py">
+        <provides>executable</provides>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary lang="it">Genera la vista per etichette discografiche</summary>
+        <description lang="it">Script per scaricare automaticamente le etichette discografiche visualizzate all'interno della sezione "Etichette Alfabetiche"</description>
+        <platform>all</platform>
+        <license>GNU GENERAL PUBLIC LICENSE Version 2</license>
+        <assets>
+            <icon>icon.png</icon>
+        </assets>
+    </extension>
+</addon><addon id="script.library.initzializer" name="Library Installer" version="1.0.4" provider-name="AcidZab">
+    <requires>
+        <import addon="xbmc.python" version="3.0.1" />
+        <import addon="script.module.scansioni" version="1.0.8" />
+    </requires>
+    <extension point="xbmc.python.script" library="default.py">
+        <provides>executable</provides>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary lang="it">Effettua la prima inizializzazione di una libreria</summary>
+        <description lang="it">Addon per la inizializzazione di un client AcidZab Archives</description>
+        <platform>all</platform>
+        <license>GNU GENERAL PUBLIC LICENSE Version 2</license>
+        <assets>
+            <icon>icon.png</icon>
+        </assets>
+    </extension>
+</addon><addon id="script.module.scansioni" name="Scan Database Helper" version="1.0.8" provider-name="AcidZab">
+    <requires>
+        <import addon="xbmc.python" version="3.0.1" />
+        <import addon="script.module.pymysql" version="1.1.0" />
+        <import addon="script.module.requests" version="2.31.0" />
+    </requires>
+    <extension point="xbmc.python.module" library="lib" />
+    <extension point="xbmc.addon.metadata">
+        <summary lang="it">Traccia le scansioni effettuate</summary>
+        <description lang="it">Modulo che si occupa di tenere traccia con apposito db SQLite le scansioni effettuate</description>
+        <platform>all</platform>
+        <license>GNU GENERAL PUBLIC LICENSE Version 2</license>
+        <assets>
+            <icon>icon.png</icon>
+        </assets>
+    </extension>
+</addon><addon id="script.music.art.preloader" name="Music Library Texture Cache Preloader" version="3.1.5" provider-name="AcidZab">
+    <requires>
+        <import addon="xbmc.python" version="3.0.1" />
+        <import addon="script.module.scansioni" version="1.0.8" />
+    </requires>
+    <extension point="xbmc.python.script" library="default.py">
+        <provides>executable</provides>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary lang="it">Precarica le miniature delle varie immagini della libreria musicale</summary>
+        <description lang="it">Servizio che si occupa di precaricare nella texture cache tutti i thumbnail degli elementi appena scansionati</description>
+        <platform>all</platform>
+        <license>GNU GENERAL PUBLIC LICENSE Version 2</license>
+        <assets>
+            <icon>icon.png</icon>
+        </assets>
+    </extension>
+</addon><addon id="script.scanner.trigger" name="Scanner Trigger" version="1.3.3" provider-name="AcidZab">
+    <requires>
+        <import addon="xbmc.python" version="3.0.1" />
+        <import addon="script.module.scansioni" version="1.0.8" />
+    </requires>
+    <extension point="xbmc.python.script" library="default.py">
+        <provides>executable</provides>
+    </extension>
+    <extension point="kodi.context.item" library="context.py">
+        <item>
+            <label>Allinea al Kodi Centrale</label>
+            <visible>String.StartsWith(Container.FolderPath,smb) | String.StartsWith(Container.FolderPath,davs) |
+                String.StartsWith(Container.FolderPath,sources)
+            </visible>
+        </item>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary lang="it">Triggera le scansioni</summary>
+        <description lang="it">Scansiona le cartelle recepite dal db delle scansioni</description>
+        <platform>all</platform>
+        <license>GNU GENERAL PUBLIC LICENSE Version 2</license>
+        <assets>
+            <icon>icon.png</icon>
+        </assets>
+    </extension>
+</addon><addon id="script.texture.cache.cleaner" name="Texture Cache Cleaner" version="1.1.1" provider-name="AcidZab">
+    <requires>
+        <import addon="xbmc.python" version="3.0.1" />
+        <import addon="script.module.scansioni" version="1.0.8" />
+    </requires>
+    <extension point="xbmc.python.script" library="default.py">
+        <provides>executable</provides>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary lang="it">Pulisce la cache locale delle texture</summary>
+        <description lang="it">Servizio che si occupa di cancellare le texture inutilizzate dalla cache locale</description>
+        <platform>all</platform>
+        <license>GNU GENERAL PUBLIC LICENSE Version 2</license>
+        <assets>
+            <icon>icon.png</icon>
+        </assets>
+    </extension>
+</addon><addon id="script.texture.refresh" name="Texture Refresher" version="3.2.1" provider-name="AcidZab">
+    <requires>
+        <import addon="xbmc.python" version="3.0.1" />
+        <import addon="script.module.scansioni" version="1.0.8" />
+    </requires>
+    <extension point="xbmc.python.script" library="default.py">
+        <provides>executable</provides>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary lang="it">Ricarica le texture</summary>
+        <description lang="it">Servizio che si occupa di ricaricare le texture dopo un aggiornamento della libreria
+        </description>
+        <platform>all</platform>
+        <license>GNU GENERAL PUBLIC LICENSE Version 2</license>
+        <assets>
+            <icon>icon.png</icon>
+        </assets>
+    </extension>
+</addon><addon id="service.autoexec.label" name="Library Sync" version="1.1.7" provider-name="AcidZab">
+    <requires>
+        <import addon="xbmc.python" version="3.0.1" />
+        <import addon="script.module.scansioni" version="1.0.8" />
+    </requires>
+    <extension point="xbmc.service" library="autoexec.py" />
+    <extension point="xbmc.python.script" library="default.py">
+        <provides>executable</provides>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary lang="it">Aggiorna la libreria all'avvio</summary>
+        <description lang="it">Servizio che si scatena all'avvio di Kodi per allineare il database con il server centrale</description>
+        <platform>all</platform>
+        <license>GNU GENERAL PUBLIC LICENSE Version 2</license>
+        <assets>
+            <icon>icon.png</icon>
+        </assets>
+    </extension>
+</addon><addon id="service.scan.checker" name="Scanner Checker" version="3.1.5" provider-name="AcidZab">
+    <requires>
+        <import addon="xbmc.python" version="3.0.1" />
+        <import addon="script.module.scansioni" version="1.0.8" />
+    </requires>
+    <extension point="xbmc.service" library="service.py" />
+    <extension point="xbmc.addon.metadata">
+        <summary lang="it">Controlla se c'è una scansione in corso</summary>
+        <description lang="it">Servizio che si occupa di controllare se ci sono aggiunte e lanciare addon di gestione
+        </description>
+        <platform>all</platform>
+        <license>GNU GENERAL PUBLIC LICENSE Version 2</license>
+        <assets>
+            <icon>icon.png</icon>
+        </assets>
+    </extension>
+</addon></addons>

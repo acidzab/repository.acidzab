@@ -1,0 +1,18 @@
+{
+	"host": "",
+	"user": "",
+	"pass": "",
+	"port": 3306,
+	"table": "",
+	"serverhost": "",
+	"rpcserveruser": "",
+	"rpcserverpass": "",
+	"rpcserverport": 0,
+	"artworker": "",
+	"artworkerbasehost": "",
+	"sourcetype": "webdav/samba",
+	"downloadfolder": "",
+	"scanserver":"",
+	"sambasource":"",
+	"webdavsource":""
+}

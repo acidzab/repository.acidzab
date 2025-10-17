@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="context.playlist.remove" name="Playlist Item Remover" version="1.0.4" provider-name="AcidZab">
+    <requires>
+        <import addon="xbmc.python" version="3.0.1"/>
+        <import addon="script.module.scansioni" version="1.0.8"/>
+    </requires>
+    <extension point="kodi.context.item" library="addon.py">
+        <item>
+            <label>Rimuovi dalla playlist</label>
+            <visible>Container.Content(songs) + String.Contains(Container.FolderPath,playlists)</visible>
+        </item>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary>Rimuove una traccia dalla playlist</summary>
+        <description>Rimuove la traccia selezionata all'interno della playlist</description>
+        <platform>all</platform>
+        <license>GNU General Public License, v2</license>
+        <email>gigi@gigi.com</email>
+        <assets>
+            <icon>icon.png</icon>
+        </assets>
+    </extension>
+</addon>

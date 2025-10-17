@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="context.music.downloader" name="Downloader" version="1.0.8" provider-name="AcidZab">
+    <requires>
+        <import addon="xbmc.python" version="3.0.1"/>
+        <import addon="script.module.scansioni" version="1.0.8"/>
+    </requires>
+    <extension point="kodi.context.item" library="addon.py">
+        <item>
+            <label>Download</label>
+            <visible>Container.Content(songs) | String.Contains(Container.FolderPath,playlists) |
+                Container.Content(albums)
+            </visible>
+        </item>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary>Scarica dall'archivio musicale</summary>
+        <description>Scarica singole tracce, album o playlist dell'archivio musicale</description>
+        <platform>all</platform>
+        <license>GNU General Public License, v2</license>
+        <email>gigi@gigi.com</email>
+        <assets>
+            <icon>icon.png</icon>
+        </assets>
+    </extension>
+</addon>

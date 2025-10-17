@@ -1,0 +1,17 @@
+2024-05-10
+    - ported to Kodi 21, removed video support
+2016-01-21
+    -added notification
+    -added debug logging
+    -added option to add to music or video playlist for music videos
+    -credit
+        braz - http://forum.kodi.tv/showthread.php?tid=13752&pid=2221308#pid2221308
+        DarkHelmet - http://forum.kodi.tv/showthread.php?tid=13752&pid=2221647#pid2221647
+2016-01-20
+    -added option to add music videos to playlist
+    -added option to create new playlist from context menu
+    -credit
+        DarkHelmet - http://forum.kodi.tv/showthread.php?tid=13752&pid=2217477#pid2217477
+        BikerDude - http://forum.kodi.tv/showthread.php?tid=13752&pid=2220450#pid2220450
+2016-01-15
+    -initial release
