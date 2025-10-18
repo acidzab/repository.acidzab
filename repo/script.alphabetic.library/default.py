@@ -172,7 +172,7 @@ def generate_alphabetical_nodes(first_letters, node_path, musicdb_path, sort_fie
 def get_first_letters(medias):
     first_letters = []
     for media in medias:
-        first_letter = media.get('label')[:1]
+        first_letter = media.get('label')[:1].lower()
         if first_letter not in first_letters:
             first_letters.append(first_letter)
     return first_letters
