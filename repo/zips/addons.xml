@@ -261,7 +261,7 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="service.autoexec.label" name="Library Sync" version="1.2.0" provider-name="AcidZab">
+</addon><addon id="service.autoexec.label" name="Library Sync" version="1.2.1" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.0.1" />
         <import addon="script.module.scansioni" version="1.0.9" />

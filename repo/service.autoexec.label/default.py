@@ -280,7 +280,7 @@ def sync_paths_to_scan(db_params, music_db_name):
 def emit_final_dialog(addon_name):
     dialog = xbmcgui.Dialog()
     icon_path = xbmcaddon.Addon().getAddonInfo('path') + '/' + 'icon.png'
-    dialog.notification(addon_name, 'Sincronizzazione della libreria completata', icon_path)
+    dialog.notification(addon_name, 'Sincronizzazione completata', icon_path)
 
 
 def sync_library():
