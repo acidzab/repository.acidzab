@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="script.texture.refresh" name="Texture Refresher" version="3.2.1" provider-name="AcidZab">
+<addon id="script.texture.refresh" name="Texture Refresher" version="3.2.2" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
-        <import addon="script.module.scansioni" version="1.0.8"/>
+        <import addon="script.module.scansioni" version="1.0.9"/>
     </requires>
     <extension point="xbmc.python.script" library="default.py">
         <provides>executable</provides>

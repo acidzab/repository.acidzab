@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="script.module.scansioni" name="Scan Database Helper" version="1.0.8" provider-name="AcidZab">
+<addon id="script.module.scansioni" name="Zab Commons Utils" version="1.0.9" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pymysql" version="1.1.0"/>
@@ -7,8 +7,8 @@
     </requires>
     <extension point="xbmc.python.module" library="lib"/>
     <extension point="xbmc.addon.metadata">
-        <summary lang="it">Traccia le scansioni effettuate</summary>
-        <description lang="it">Modulo che si occupa di tenere traccia con apposito db SQLite le scansioni effettuate</description>
+        <summary lang="it">Metodi di utilità</summary>
+        <description lang="it">Modulo che contiene metodi di utilità comuni utilizzati dai vari add-on</description>
         <platform>all</platform>
         <license>GNU GENERAL PUBLIC LICENSE Version 2</license>
         <assets>

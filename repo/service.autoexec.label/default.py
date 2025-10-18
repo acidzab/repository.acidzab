@@ -1,15 +1,15 @@
 import json
-import re
 import sqlite3
 import time
 from datetime import datetime, timedelta
-from urllib.parse import unquote, quote
 
+import db_scan
 import pymysql
 import xbmc
-import db_scan
 import xbmcaddon
 import xbmcgui
+
+addon_name = xbmcaddon.Addon().getAddonInfo('name')
 
 
 def log(msg):
@@ -110,7 +110,8 @@ def get_album_infos(use_central, db_params, music_db_name):
             album_paths = paths_by_id_album.get(result['idAlbum'])
             if not album_paths:
                 album_paths = []
-            album_paths.append(result['strPath'] if not use_webdav or use_central else db_scan.convert_from_davs_to_smb(result['strPath']))
+            album_paths.append(result['strPath'] if not use_webdav or use_central else db_scan.convert_from_davs_to_smb(
+                result['strPath']))
             paths_by_id_album[result['idAlbum']] = album_paths
         album_path_by_id = get_album_paths_by_id_album(paths_by_id_album, db_params)
         for result in query_results:
@@ -154,6 +155,7 @@ def init_music_database():
         query_string = ';'.join([f"path={path}" for path in paths_to_scan if path])
         params = db_scan.encode_string(f'?{query_string};mode=init', safe_chars='()!')
     execute_addon_with_builtin('script.scanner.trigger', params)
+    emit_final_dialog(addon_name)
 
 
 def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params):
@@ -199,10 +201,12 @@ def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params):
             if not album_paths:
                 album_paths = []
             album_paths.append(result.get('strPath'))
-            local_paths_to_check.append(db_scan.convert_from_smb_to_davs(result.get('strPath')) if use_webdav else result.get('strPath'))
+            local_paths_to_check.append(
+                db_scan.convert_from_smb_to_davs(result.get('strPath')) if use_webdav else result.get('strPath'))
             paths_by_id_album[result.get('idAlbum')] = album_paths
         album_path_by_id = get_album_paths_by_id_album(paths_by_id_album, db_params)
-        central_dt_added_by_path = {album_path_by_id.get(result.get('idAlbum')): result.get('dateAdded') for result in central_results}
+        central_dt_added_by_path = {album_path_by_id.get(result.get('idAlbum')): result.get('dateAdded') for result in
+                                    central_results}
     music_db_path = db_scan.get_music_db_path()
     music_db = sqlite3.connect(music_db_path)
     music_db.row_factory = sqlite3.Row
@@ -223,10 +227,12 @@ def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params):
             album_paths = paths_by_id_album.get(result['idAlbum'])
             if not album_paths:
                 album_paths = []
-            album_paths.append(result['strPath'] if not use_webdav else db_scan.convert_from_davs_to_smb(result['strPath']))
+            album_paths.append(
+                result['strPath'] if not use_webdav else db_scan.convert_from_davs_to_smb(result['strPath']))
             paths_by_id_album[result['idAlbum']] = album_paths
         album_path_by_id = get_album_paths_by_id_album(paths_by_id_album, db_params)
-        local_dt_added_by_path = {album_path_by_id.get(result['idAlbum']): result['dateAdded'] for result in local_results}
+        local_dt_added_by_path = {album_path_by_id.get(result['idAlbum']): result['dateAdded'] for result in
+                                  local_results}
 
     for central_path in central_dt_added_by_path.keys():
         local_dt_added = local_dt_added_by_path.get(central_path)
@@ -247,8 +253,13 @@ def sync_paths_to_scan(db_params, music_db_name):
     return paths_to_scan
 
 
+def emit_final_dialog(addon_name):
+    dialog = xbmcgui.Dialog()
+    icon_path = xbmcaddon.Addon().getAddonInfo('path') + '/' + 'icon.png'
+    dialog.notification(addon_name, 'Sincronizzazione della libreria completata', icon_path)
+
+
 def sync_library():
-    addon_name = xbmcaddon.Addon().getAddonInfo('name')
     log(addon_name)
     db_params = db_scan.get_db_params()
     if db_params.get('table'):
@@ -260,9 +271,7 @@ def sync_library():
         query_string = ';'.join([f"path={path}" for path in current_scans if path])
         params = db_scan.encode_string(f'?{query_string};mode={exec_mode}', safe_chars='()!')
         execute_addon_with_builtin('script.scanner.trigger', params)
-        dialog = xbmcgui.Dialog()
-        icon_path = xbmcaddon.Addon().getAddonInfo('path') + '/' + 'icon.png'
-        dialog.notification(addon_name, 'Sincronizzazione della libreria completata', icon_path)
+        emit_final_dialog(addon_name)
 
 
 if __name__ == "__main__":

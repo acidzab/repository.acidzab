@@ -2,8 +2,7 @@ import json
 import os
 import re
 import sqlite3
-import sys
-from urllib.parse import quote, unquote, parse_qs
+from urllib.parse import quote, unquote
 
 import db_scan
 import xbmc
@@ -19,25 +18,6 @@ addon_id = xbmcaddon.Addon().getAddonInfo('id')
 
 def log(msg):
     xbmc.log(str(msg), xbmc.LOGDEBUG)
-
-
-def read_params():
-    # Leggi i parametri passati
-    parsed_params = {}
-    params_string = sys.argv[1] if len(sys.argv) > 1 else None
-    if params_string:
-        # Estrai i parametri dalla query string
-        params_string = unquote(params_string)
-        parsed_params = parse_qs(params_string.lstrip('?'), separator=';')
-    return parsed_params
-
-
-def get_paths_from_params():
-    paths_from_params = []
-    parsed_params = read_params()
-    if parsed_params and parsed_params.get('path'):
-        paths_from_params = parsed_params.get('path')
-    return paths_from_params
 
 
 def get_sources():
@@ -364,7 +344,7 @@ def convert_playlists_to_info_media_view():
 
 def switch_to_thumb_view_for_files():
     db_params = db_scan.get_db_params()
-    paths_from_params = get_paths_from_params()
+    paths_from_params = db_scan.get_paths_from_params()
     use_webdav = db_params.get('sourcetype') == 'webdav'
     sources = get_sources()
     sources_paths = [source.get('file') for source in sources]

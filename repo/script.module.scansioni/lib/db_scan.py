@@ -1,19 +1,17 @@
 import json
 import os
 import re
-import sqlite3
-import xml.etree.ElementTree as ET
-from urllib import request
-from urllib.parse import unquote, quote
+import sys
+from urllib.parse import unquote, quote, parse_qs
 
 import pymysql.cursors
 import requests
 import xbmc
-import xbmcaddon
 import xbmcvfs
 from requests import auth
 
 kodi_local_db_path = xbmcvfs.translatePath('special://userdata/Database/')
+
 
 def log(msg):
     xbmc.log(str(msg), xbmc.LOGDEBUG)
@@ -46,6 +44,36 @@ def convert_from_smb_to_davs(smb_path):
     dav_path = encode_string(path_without_prefix)
     dav_path = f'{webdav_source_base}{dav_path}'
     return dav_path
+
+
+def read_params():
+    # Leggi i parametri passati
+    parsed_params = {}
+    params_string = sys.argv[1] if len(sys.argv) > 1 else None
+    if params_string:
+        # Estrai i parametri dalla query string
+        # devo fare doppia codifica sulle + perchè parse_qs me le traduce poi come spazi
+        params_string = params_string.replace('%2b', encode_string(params_string, safe_chars='()!'))
+        params_string = unquote(params_string)
+        parsed_params = parse_qs(params_string.lstrip('?'), separator=';')
+    return parsed_params
+
+
+def get_exec_mode():
+    # exec mode possono essere o scan o init, scanner trigger prevede anche align
+    exec_mode = 'scan'
+    parsed_params = read_params()
+    if parsed_params and parsed_params.get('mode'):
+        exec_mode = parsed_params.get('mode')[0]
+    return exec_mode
+
+
+def get_paths_from_params():
+    paths_from_params = []
+    parsed_params = read_params()
+    if parsed_params and parsed_params.get('path'):
+        paths_from_params = parsed_params.get('path')
+    return paths_from_params
 
 
 def get_jsons_to_process(db_params):

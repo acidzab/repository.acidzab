@@ -2,8 +2,7 @@ import json
 import os
 import re
 import sqlite3
-import sys
-from urllib.parse import quote, parse_qs, unquote
+from urllib.parse import quote, unquote
 
 import db_scan
 import unicodedata
@@ -76,34 +75,6 @@ def split_json(data, max_size=40960):
         chunks.append(current_chunk)
 
     return chunks
-
-
-def read_params():
-    # Leggi i parametri passati
-    parsed_params = {}
-    params_string = sys.argv[1] if len(sys.argv) > 1 else None
-    if params_string:
-        # Estrai i parametri dalla query string
-        params_string = unquote(params_string)
-        parsed_params = parse_qs(params_string.lstrip('?'), separator=';')
-    return parsed_params
-
-
-def get_exec_mode():
-    # exec mode possono essere o scan o init
-    exec_mode = 'scan'
-    parsed_params = read_params()
-    if parsed_params and parsed_params.get('mode'):
-        exec_mode = parsed_params.get('mode')[0]
-    return exec_mode
-
-
-def get_paths_from_params():
-    paths_from_params = []
-    parsed_params = read_params()
-    if parsed_params and parsed_params.get('path'):
-        paths_from_params = parsed_params.get('path')
-    return paths_from_params
 
 
 def execute_addon_with_builtin(addon_id, params=None):
@@ -509,8 +480,8 @@ def refresh_textures(paths, exec_mode, paths_from_params):
 
 def execute_texture_refresh():
     db_params = db_scan.get_db_params()
-    exec_mode = get_exec_mode()
-    paths_from_params = get_paths_from_params()
+    exec_mode = db_scan.get_exec_mode()
+    paths_from_params = db_scan.get_paths_from_params()
     use_webdav = db_params.get('sourcetype') == 'webdav'
     added_paths = []
     if paths_from_params:

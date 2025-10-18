@@ -3,8 +3,7 @@ import os
 import re
 import sqlite3
 import string
-import sys
-from urllib.parse import quote, unquote, parse_qs
+from urllib.parse import quote, unquote
 from xml.etree import ElementTree
 
 import db_scan
@@ -16,7 +15,10 @@ import xbmcvfs
 from unidecode import unidecode
 
 db_params = db_scan.get_db_params()
-central_etichette_path = 'davs://u387908.your-storagebox.de/etichette/' if db_params.get('sourcetype') == 'webdav' else 'smb://u387908.your-storagebox.de/backup/etichette/'
+smb_base_source = db_params.get('sambasource')
+dav_base_source = db_params.get('webdavsource')
+central_etichette_path = f'{dav_base_source}/etichette/' if db_params.get(
+    'sourcetype') == 'webdav' else f'{smb_base_source}/etichette/'
 etichette_local_special = 'special://masterprofile/library/music/etichette/'
 etichette_local = xbmcvfs.translatePath(etichette_local_special)
 kodi_label_default_icon = 'DefaultMusicAlbums.png'
@@ -46,25 +48,6 @@ def get_textures():
     json_result = xbmc.executeJSONRPC(json.dumps(json_get_texture_payload))
     textures_res = json.loads(json_result).get('result').get('textures')
     return textures_res
-
-
-def read_params():
-    # Leggi i parametri passati
-    parsed_params = {}
-    params_string = sys.argv[1] if len(sys.argv) > 1 else None
-    if params_string:
-        # Estrai i parametri dalla query string
-        params_string = unquote(params_string)
-        parsed_params = parse_qs(params_string.lstrip('?'), separator=';')
-    return parsed_params
-
-
-def get_paths_from_params():
-    paths_from_params = []
-    parsed_params = read_params()
-    if parsed_params and parsed_params.get('path'):
-        paths_from_params = parsed_params.get('path')
-    return paths_from_params
 
 
 def get_textures_urls(textures):
@@ -201,6 +184,7 @@ def preload_new_labels_on_texture_cache(textures_results):
         progress.update(percent=int(percentuale), message=file_name)
 
     progress.close()
+
 
 def get_kodi_image_path(file_path):
     # decodifico il file path con il path image per Kodi per triggerare il job di cache
@@ -602,7 +586,7 @@ def preload_labels_on_local_kodi():
     progress.close()
 
     remove_labels(central_labels, textures, use_webdav)
-    paths_from_params = get_paths_from_params()
+    paths_from_params = db_scan.get_paths_from_params()
     if paths_from_params:
         albums_to_check = get_ids_to_refresh(paths_from_params, use_webdav)
         labels_to_check = get_labels_to_process(albums_to_check)
