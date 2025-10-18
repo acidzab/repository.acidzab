@@ -12,6 +12,26 @@ import xbmcgui
 addon_name = xbmcaddon.Addon().getAddonInfo('name')
 
 
+class ScanMonitor(xbmc.Monitor):
+    def __init__(self):
+        super(ScanMonitor, self).__init__()
+        self.scan_finished = False
+
+    def onNotification(self, sender, method, data):
+        if sender == 'script.scanner.trigger' and method == 'Other.OnScanAndAlignFinished':
+            self.scan_finished = True
+
+    def wait_for_scan(self):
+        """Attende il completamento della scansione"""
+        while not self.scan_finished and not self.abortRequested():
+            self.waitForAbort(0.5)  # controlla ogni 500ms
+        return not self.abortRequested()
+
+    def reset(self):
+        """Reset per la prossima scansione"""
+        self.scan_finished = False
+
+
 def log(msg):
     xbmc.log(str(msg), xbmc.LOGDEBUG)
 
@@ -155,7 +175,11 @@ def init_music_database():
         query_string = ';'.join([f"path={path}" for path in paths_to_scan if path])
         params = db_scan.encode_string(f'?{query_string};mode=init', safe_chars='()!')
     execute_addon_with_builtin('script.scanner.trigger', params)
-    emit_final_dialog(addon_name)
+    monitor = ScanMonitor()
+    if monitor.wait_for_scan():
+        monitor.reset()
+        xbmc.log(f"Sincronizzazione libreria completata", xbmc.LOGINFO)
+        emit_final_dialog(addon_name)
 
 
 def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params):
@@ -271,7 +295,11 @@ def sync_library():
         query_string = ';'.join([f"path={path}" for path in current_scans if path])
         params = db_scan.encode_string(f'?{query_string};mode={exec_mode}', safe_chars='()!')
         execute_addon_with_builtin('script.scanner.trigger', params)
-        emit_final_dialog(addon_name)
+        monitor = ScanMonitor()
+        if monitor.wait_for_scan():
+            monitor.reset()
+            xbmc.log(f"Sincronizzazione libreria completata", xbmc.LOGINFO)
+            emit_final_dialog(addon_name)
 
 
 if __name__ == "__main__":

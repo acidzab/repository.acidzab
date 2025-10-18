@@ -261,7 +261,7 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="service.autoexec.label" name="Library Sync" version="1.1.9" provider-name="AcidZab">
+</addon><addon id="service.autoexec.label" name="Library Sync" version="1.2.0" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.0.1" />
         <import addon="script.module.scansioni" version="1.0.9" />
@@ -272,9 +272,7 @@
     </extension>
     <extension point="xbmc.addon.metadata">
         <summary lang="it">Aggiorna la libreria all'avvio</summary>
-        <description lang="it">Servizio che si scatena all'avvio di Kodi per allineare il database con il server
-            centrale
-        </description>
+        <description lang="it">Servizio che si scatena all'avvio di Kodi per allineare il database con il server centrale</description>
         <platform>all</platform>
         <license>GNU GENERAL PUBLIC LICENSE Version 2</license>
         <assets>
