@@ -53,7 +53,7 @@ def read_params():
     if params_string:
         # Estrai i parametri dalla query string
         # devo fare doppia codifica sulle + perchè parse_qs me le traduce poi come spazi
-        params_string = params_string.replace('%2b', encode_string(params_string, safe_chars='()!'))
+        params_string = params_string.replace('%2b', encode_string('%2b', safe_chars='()!'))
         params_string = unquote(params_string)
         parsed_params = parse_qs(params_string.lstrip('?'), separator=';')
     return parsed_params
