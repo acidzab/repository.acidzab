@@ -142,15 +142,14 @@ def get_folder_path(base_path, values, sort_field, media_type):
 def generate_folder_node(node_name, folder_path, order, destination):
     file_name = f'{node_name}.xml'
     destination_path = os.path.join(destination, file_name)
-    if not xbmcvfs.exists(destination_path):
-        node = ET.Element('node', order=str(order), type='folder')
-        label = ET.SubElement(node, 'label')
-        label.text = node_name.upper()
-        path = ET.SubElement(node, 'path')
-        path.text = folder_path
-        node_xml = minidom.parseString(ET.tostring(node, encoding='UTF-8')).toprettyxml()
-        with xbmcvfs.File(destination_path, 'w') as genre_file:
-            genre_file.write(node_xml)
+    node = ET.Element('node', order=str(order), type='folder')
+    label = ET.SubElement(node, 'label')
+    label.text = node_name.upper()
+    path = ET.SubElement(node, 'path')
+    path.text = folder_path
+    node_xml = minidom.parseString(ET.tostring(node, encoding='UTF-8')).toprettyxml()
+    with xbmcvfs.File(destination_path, 'w') as genre_file:
+        genre_file.write(node_xml)
 
 
 def generate_alphabetical_nodes(first_letters, node_path, musicdb_path, sort_field, media_type):
@@ -160,10 +159,8 @@ def generate_alphabetical_nodes(first_letters, node_path, musicdb_path, sort_fie
 
     for (order, filtered_letter) in enumerate(filtered_letters, start=2):
         low_filtered_letter = filtered_letter.lower()
-        file_path = f'{node_path}{low_filtered_letter}.xml'
-        if not xbmcvfs.exists(xbmcvfs.translatePath(file_path)):
-            node_folder_path = get_folder_path(musicdb_path, [low_filtered_letter], sort_field, media_type)
-            generate_folder_node(low_filtered_letter, node_folder_path, order, xbmcvfs.translatePath(node_path))
+        node_folder_path = get_folder_path(musicdb_path, [low_filtered_letter], sort_field, media_type)
+        generate_folder_node(low_filtered_letter, node_folder_path, order, xbmcvfs.translatePath(node_path))
 
     non_alpha_folder_path = get_folder_path(musicdb_path, non_alpha_chars, sort_field, media_type)
     generate_folder_node(non_alphabetical_folder, non_alpha_folder_path, 1, xbmcvfs.translatePath(node_path))

@@ -81,7 +81,7 @@
             <fanart>fanart.jpg</fanart>
         </assets>
     </extension>
-</addon><addon id="script.alphabetic.library" name="Alphabetic Library" version="1.0.1" provider-name="AcidZab">
+</addon><addon id="script.alphabetic.library" name="Alphabetic Library" version="1.0.2" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.0.1" />
     </requires>
