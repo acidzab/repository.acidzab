@@ -470,12 +470,11 @@ def refresh_textures(paths, exec_mode, paths_from_params):
     execute_addon_with_builtin("script.label.preloader", base_params)
     execute_addon_with_builtin("script.alphabetic.library")
     execute_addon_with_builtin("script.genres.preloader")
-    if exec_mode != 'init':
-        monitor = AlignMonitor()
-        if monitor.wait_for_align():
-            monitor.reset()
-            builtin_cmd = f'NotifyAll({addon_id}, OnTextureRefreshed)'
-            xbmc.executebuiltin(builtin_cmd)
+    monitor = AlignMonitor()
+    if monitor.wait_for_align():
+        monitor.reset()
+        builtin_cmd = f'NotifyAll({addon_id}, OnTextureRefreshed)'
+        xbmc.executebuiltin(builtin_cmd)
 
 
 def execute_texture_refresh():

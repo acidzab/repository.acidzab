@@ -1226,12 +1226,11 @@ def trigger_scan():
         paths_to_align.extend(paths_to_scan)
         paths_to_align_local.extend(paths_to_scan_local)
     align_media_to_central_db(paths_to_align, paths_to_align_local, exec_mode, db_params)
-    if exec_mode != 'init':
-        align_monitor = AlignMonitor()
-        if align_monitor.wait_for_align():
-            align_monitor.reset()
-            builtin_cmd = f'NotifyAll({addon_id}, OnScanAndAlignFinished)'
-            xbmc.executebuiltin(builtin_cmd)
+    align_monitor = AlignMonitor()
+    if align_monitor.wait_for_align():
+        align_monitor.reset()
+        builtin_cmd = f'NotifyAll({addon_id}, OnScanAndAlignFinished)'
+        xbmc.executebuiltin(builtin_cmd)
 
 
 if __name__ == '__main__':

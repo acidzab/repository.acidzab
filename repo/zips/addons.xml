@@ -182,7 +182,7 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="script.music.art.preloader" name="Music Library Texture Cache Preloader" version="3.1.6" provider-name="AcidZab">
+</addon><addon id="script.music.art.preloader" name="Music Library Texture Cache Preloader" version="3.1.7" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.0.1" />
         <import addon="script.module.scansioni" version="1.0.9" />
@@ -192,14 +192,16 @@
     </extension>
     <extension point="xbmc.addon.metadata">
         <summary lang="it">Precarica le miniature delle varie immagini della libreria musicale</summary>
-        <description lang="it">Servizio che si occupa di precaricare nella texture cache tutti i thumbnail degli elementi appena scansionati</description>
+        <description lang="it">Servizio che si occupa di precaricare nella texture cache tutti i thumbnail degli
+            elementi appena scansionati
+        </description>
         <platform>all</platform>
         <license>GNU GENERAL PUBLIC LICENSE Version 2</license>
         <assets>
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="script.scanner.trigger" name="Scanner Trigger" version="1.3.4" provider-name="AcidZab">
+</addon><addon id="script.scanner.trigger" name="Scanner Trigger" version="1.3.5" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.0.1" />
         <import addon="script.module.scansioni" version="1.0.9" />
@@ -241,7 +243,7 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="script.texture.refresh" name="Texture Refresher" version="3.2.2" provider-name="AcidZab">
+</addon><addon id="script.texture.refresh" name="Texture Refresher" version="3.2.3" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.0.1" />
         <import addon="script.module.scansioni" version="1.0.9" />

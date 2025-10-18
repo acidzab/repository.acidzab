@@ -367,6 +367,12 @@ def init_music_cache():
     preload_all_music_cache('GetAlbums', 'albums', textures)
     preload_all_music_cache('GetSongs', 'songs', textures)
     execute_addon_with_rpc("script.texture.cache.cleaner")
+    monitor = CacheCleanerMonitor()
+    if monitor.wait_for_cache_clean():
+        xbmc.log('Pulizia della cache delle texture completata', xbmc.LOGINFO)
+        monitor.reset()
+        builtin_cmd = f'NotifyAll({addon_id}, OnArtsPreloaded)'
+        xbmc.executebuiltin(builtin_cmd)
 
 
 if __name__ == '__main__':
