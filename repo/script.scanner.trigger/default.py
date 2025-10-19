@@ -56,27 +56,6 @@ def log(msg):
     xbmc.log(str(msg), xbmc.LOGDEBUG)
 
 
-# Funzione per dividere in chunk
-def split_json(data, max_size=40960):
-    chunks = []
-    current_chunk = []
-    current_size = 0
-
-    for item in data:
-        item_size = len(json.dumps(item).encode('utf-8'))
-        if current_size + item_size >= max_size:
-            chunks.append(current_chunk)
-            current_chunk = []
-            current_size = 0
-        current_chunk.append(item)
-        current_size += item_size
-
-    if current_chunk:
-        chunks.append(current_chunk)
-
-    return chunks
-
-
 def execute_addon_with_builtin(addon_id, params):
     builtin_cmd = f'RunAddon({addon_id},{params})'
     xbmc.executebuiltin(builtin_cmd, True)
@@ -391,7 +370,7 @@ def get_songs_by_albums(id_albums, call_central, db_params):
             }
         }
         json_payloads.append(json_payload)
-    splitted_requests = split_json(json_payloads)
+    splitted_requests = db_scan.split_json(json_payloads)
     for splitted_request in splitted_requests:
         if call_central:
             response_get_songs = db_scan.execute_from_central_kodi_webserver(db_params, splitted_request)

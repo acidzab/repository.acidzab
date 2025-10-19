@@ -45,21 +45,51 @@ def safe_strptime(date_string, format_string):
         return datetime.fromtimestamp(time.mktime(time.strptime(date_string, format_string)))
 
 
-# controllo che sia una directory valida chiamando la GetDirectory, che ti tiene vincolato alle sorgenti censite su Kodi
-def check_if_common_dir_is_valid(common_dir):
+def get_sources():
     json_payload = {
         "jsonrpc": "2.0",
-        "method": "Files.GetDirectory",
+        "method": "AudioLibrary.GetSources",
         "id": "1",
         "params": {
-            "directory": common_dir,
-            "media": "music",
-            "properties": []
+            "properties": [
+                "file"
+            ]
         }
     }
-    directory_req = xbmc.executeJSONRPC(json.dumps(json_payload, ensure_ascii=False))
-    response = json.loads(directory_req)
-    return not response.get('error')
+    sources = []
+    get_sources_req = xbmc.executeJSONRPC(json.dumps(json_payload))
+    response = json.loads(get_sources_req)
+    if response.get('result'):
+        sources = response.get('result').get('sources')
+    return [source.get('file') for source in sources]
+
+
+# controllo che sia una directory valida guardando che sia presente dentro i path sul db e che non sia una sorgente
+def filter_commons_dict(albums_dict, commons_path_dict):
+    query = 'SELECT strPath FROM path'
+    query_results = []
+    music_db_path = db_scan.get_music_db_path()
+    sources = get_sources()
+    music_db = sqlite3.connect(music_db_path)
+    music_db.row_factory = sqlite3.Row
+    music_db.set_trace_callback(log)
+    music_db_cursor = music_db.cursor()
+    music_db_cursor.execute(query)
+    query_results.extend(music_db_cursor.fetchall())
+    music_db_cursor.close()
+    music_db.close()
+    paths = []
+    for (strPath,) in query_results:
+        paths.append(strPath)
+    for id_album in commons_path_dict:
+        album_paths = commons_path_dict.get(id_album)
+        filtered_paths = []
+        for path in album_paths:
+            if path in paths and path not in sources:
+                filtered_paths.append(path)
+        if len(filtered_paths) == 0:
+            filtered_paths.extend(albums_dict.get(id_album))
+        commons_path_dict[id_album] = filtered_paths
 
 
 def get_album_paths_by_id_album(albums):
@@ -81,11 +111,9 @@ def get_album_paths_by_id_album(albums):
             if common_prefix and '/' in common_prefix:
                 last_slash = common_prefix.rfind('/')
                 common_prefix = common_prefix[:last_slash + 1]
-            if check_if_common_dir_is_valid(common_prefix):
                 album_paths.append(common_prefix)
-            else:
-                album_paths.extend(paths)
             path_by_id_album[id_album] = album_paths
+    filter_commons_dict(albums, path_by_id_album)
     return path_by_id_album
 
 

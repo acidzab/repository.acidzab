@@ -56,27 +56,6 @@ def decode_url(path):
     return unquote(path)
 
 
-# Funzione per dividere in chunk
-def split_json(data, max_size=40960):
-    chunks = []
-    current_chunk = []
-    current_size = 0
-
-    for item in data:
-        item_size = len(json.dumps(item).encode('utf-8'))
-        if current_size + item_size >= max_size:
-            chunks.append(current_chunk)
-            current_chunk = []
-            current_size = 0
-        current_chunk.append(item)
-        current_size += item_size
-
-    if current_chunk:
-        chunks.append(current_chunk)
-
-    return chunks
-
-
 def execute_addon_with_builtin(addon_id, params=None):
     builtin_cmd = f'RunAddon({addon_id})'
     if params:
@@ -91,7 +70,7 @@ def remove_textures(id_textures):
                                        "params": {"textureid": id_texture}}
         if json_texture_remove_payload not in textures_requests:
             textures_requests.append(json_texture_remove_payload)
-    splitted_requests = split_json(textures_requests)
+    splitted_requests = db_scan.split_json(textures_requests)
     for splitted_request in splitted_requests:
         xbmc.executeJSONRPC(json.dumps(splitted_request))
 

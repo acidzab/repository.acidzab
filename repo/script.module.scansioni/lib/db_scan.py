@@ -26,6 +26,27 @@ def convert_from_davs_to_smb(davs_path):
     return smb_path
 
 
+# Funzione per dividere in chunk
+def split_json(data, max_size=40960):
+    chunks = []
+    current_chunk = []
+    current_size = 0
+
+    for item in data:
+        item_size = len(json.dumps(item).encode('utf-8'))
+        if current_size + item_size >= max_size:
+            chunks.append(current_chunk)
+            current_chunk = []
+            current_size = 0
+        current_chunk.append(item)
+        current_size += item_size
+
+    if current_chunk:
+        chunks.append(current_chunk)
+
+    return chunks
+
+
 # fa l'encoding di una stringa nel modo che piace a Kodi
 # considerando lo slash come carattere da codificare a differenza di () e !
 # inoltre i parametri di codifica degli uri devono essere in minuscolo
