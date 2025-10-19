@@ -45,31 +45,25 @@ def safe_strptime(date_string, format_string):
         return datetime.fromtimestamp(time.mktime(time.strptime(date_string, format_string)))
 
 
-def get_sources():
+# controllo che sia una directory valida chiamando la GetDirectory, che ti tiene vincolato alle sorgenti censite su Kodi
+def check_if_common_dir_is_valid(common_dir):
     json_payload = {
         "jsonrpc": "2.0",
-        "method": "AudioLibrary.GetSources",
+        "method": "Files.GetDirectory",
         "id": "1",
         "params": {
-            "properties": [
-                "file"
-            ]
+            "directory": common_dir,
+            "media": "music",
+            "properties": []
         }
     }
-    sources = []
-    sources_paths = []
-    get_sources_req = xbmc.executeJSONRPC(json.dumps(json_payload))
-    response = json.loads(get_sources_req)
-    if response.get('result'):
-        sources = response.get('result').get('sources')
-        sources_paths = [source.get('file') for source in sources]
-    return sources_paths
+    directory_req = xbmc.executeJSONRPC(json.dumps(json_payload, ensure_ascii=False))
+    response = json.loads(directory_req)
+    return not response.get('error')
 
 
-def get_album_paths_by_id_album(albums, db_params, sources):
+def get_album_paths_by_id_album(albums):
     path_by_id_album = {}
-    smb_source_base = db_params.get('sambasource')
-    webdav_source_base = db_params.get('webdavsource')
     for id_album in albums:
         album_paths = []
         paths = albums.get(id_album)
@@ -87,7 +81,7 @@ def get_album_paths_by_id_album(albums, db_params, sources):
             if common_prefix and '/' in common_prefix:
                 last_slash = common_prefix.rfind('/')
                 common_prefix = common_prefix[:last_slash + 1]
-            if common_prefix != f'{webdav_source_base}/' and common_prefix != f'{smb_source_base}/' and common_prefix not in sources:
+            if check_if_common_dir_is_valid(common_prefix):
                 album_paths.append(common_prefix)
             else:
                 album_paths.extend(paths)
@@ -118,7 +112,7 @@ def get_properties(call_central, db_params):
     return props
 
 
-def get_album_infos(use_central, db_params, music_db_name, sources):
+def get_album_infos(use_central, db_params, music_db_name):
     use_webdav = db_params.get('sourcetype') == 'webdav'
     music_db_path = db_scan.get_music_db_path()
     album_infos = []
@@ -158,16 +152,16 @@ def get_album_infos(use_central, db_params, music_db_name, sources):
             album_paths.append(result['strPath'] if not use_webdav or use_central else db_scan.convert_from_davs_to_smb(
                 result['strPath']))
             paths_by_id_album[result['idAlbum']] = album_paths
-        album_path_by_id = get_album_paths_by_id_album(paths_by_id_album, db_params, sources)
+        album_path_by_id = get_album_paths_by_id_album(paths_by_id_album)
         for result in query_results:
             album_info = {'mbid': result['strMusicBrainzAlbumID'], 'path': album_path_by_id.get(result['idAlbum'])}
             album_infos.append(album_info)
     return album_infos
 
 
-def get_releases_to_align(db_params, music_db_name, sources):
-    central_albums = get_album_infos(True, db_params, music_db_name, sources)
-    local_albums = get_album_infos(False, db_params, music_db_name, sources)
+def get_releases_to_align(db_params, music_db_name):
+    central_albums = get_album_infos(True, db_params, music_db_name)
+    local_albums = get_album_infos(False, db_params, music_db_name)
     # Converti in set per confronti più efficienti
     central_set = {(album['mbid'], tuple(album['path'])) for album in central_albums}
     local_set = {(album['mbid'], tuple(album['path'])) for album in local_albums}
@@ -207,7 +201,7 @@ def init_music_database():
         emit_final_dialog(addon_name)
 
 
-def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params, sources):
+def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params):
     central_query = '''
                     SELECT songview.strPath,
                            album.dateAdded,
@@ -256,7 +250,7 @@ def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params, sources)
             local_paths_to_check.append(
                 db_scan.convert_from_smb_to_davs(result.get('strPath')) if use_webdav else result.get('strPath'))
             paths_by_id_album[result.get('idAlbum')] = album_paths
-        album_path_by_id = get_album_paths_by_id_album(paths_by_id_album, db_params, sources)
+        album_path_by_id = get_album_paths_by_id_album(paths_by_id_album)
         central_dt_added_by_mbid = {
             result.get('strMusicBrainzAlbumID'): {'paths': album_path_by_id.get(result.get('idAlbum')),
                                                   'dateAdded': result.get('dateAdded')} for result in central_results}
@@ -283,7 +277,7 @@ def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params, sources)
             album_paths.append(
                 result['strPath'] if not use_webdav else db_scan.convert_from_davs_to_smb(result['strPath']))
             paths_by_id_album[result['idAlbum']] = album_paths
-        album_path_by_id = get_album_paths_by_id_album(paths_by_id_album, db_params, sources)
+        album_path_by_id = get_album_paths_by_id_album(paths_by_id_album)
         local_dt_added_by_mbid = {
             result['strMusicBrainzAlbumID']: {'paths': album_path_by_id.get(result['idAlbum']),
                                               'dateAdded': result['dateAdded']} for result in local_results}
@@ -301,9 +295,8 @@ def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params, sources)
 def sync_paths_to_scan(db_params, music_db_name):
     local_props = get_properties(False, db_params)
     local_last_scanned = local_props.get('librarylastupdated')
-    sources = get_sources()
-    albums_to_sync = get_albums_to_sync(local_last_scanned, music_db_name, db_params, sources)
-    albums_to_align = get_releases_to_align(db_params, music_db_name, sources)
+    albums_to_sync = get_albums_to_sync(local_last_scanned, music_db_name, db_params)
+    albums_to_align = get_releases_to_align(db_params, music_db_name)
     paths_to_scan = set()
     paths_to_scan.update(albums_to_sync)
     paths_to_scan.update(albums_to_align)
