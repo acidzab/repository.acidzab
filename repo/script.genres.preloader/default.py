@@ -69,20 +69,19 @@ def generate_genres_folder_node(genre, order, filename_by_genre):
         },
         "type": "albums"
     }
-    if not xbmcvfs.exists(destination_path):
-        node = ET.Element('node', order=str(order), type='folder', visible='Library.HasContent(Music)')
-        label = ET.SubElement(node, 'label')
-        label.text = genre_name
-        icon = ET.SubElement(node, 'icon')
-        icon.text = kodi_genre_default_icon
-        json_xsp_rule = json.dumps(xsp_rule, separators=(',', ':'), ensure_ascii=False)
-        encoded_xsp = encode_string(json_xsp_rule)
-        folder_path = f'musicdb://albums/?xsp={encoded_xsp}'
-        path = ET.SubElement(node, 'path')
-        path.text = folder_path
-        genre_xml = minidom.parseString(ET.tostring(node, encoding='UTF-8')).toprettyxml()
-        with xbmcvfs.File(destination_path, 'w') as genre_file:
-            genre_file.write(genre_xml)
+    node = ET.Element('node', order=str(order), type='folder', visible='Library.HasContent(Music)')
+    label = ET.SubElement(node, 'label')
+    label.text = genre_name
+    icon = ET.SubElement(node, 'icon')
+    icon.text = kodi_genre_default_icon
+    json_xsp_rule = json.dumps(xsp_rule, separators=(',', ':'), ensure_ascii=False)
+    encoded_xsp = encode_string(json_xsp_rule)
+    folder_path = f'musicdb://albums/?xsp={encoded_xsp}'
+    path = ET.SubElement(node, 'path')
+    path.text = folder_path
+    genre_xml = minidom.parseString(ET.tostring(node, encoding='UTF-8')).toprettyxml()
+    with xbmcvfs.File(destination_path, 'w') as genre_file:
+        genre_file.write(genre_xml)
 
 
 def init_genres_node():
