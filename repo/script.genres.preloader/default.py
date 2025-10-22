@@ -84,6 +84,21 @@ def generate_genres_folder_node(genre, order, filename_by_genre):
         genre_file.write(genre_xml)
 
 
+def generate_genre_smart_playlist(genre, filename_by_genre):
+    genre_name = genre.get('label')
+    file_name = filename_by_genre.get(genre_name)
+    destination_path = os.path.join(genres_local, file_name)
+    node = ET.Element('smartplaylist', type='songs')
+    match = ET.SubElement(node, 'match')
+    match.text = 'all'
+    rule = ET.SubElement(node, 'rule', field='genre', operator='is')
+    value = ET.SubElement(rule, 'value')
+    value.text = genre_name
+    genre_xml = minidom.parseString(ET.tostring(node, encoding='UTF-8')).toprettyxml()
+    with xbmcvfs.File(destination_path, 'w') as genre_file:
+        genre_file.write(genre_xml)
+
+
 def init_genres_node():
     xbmcvfs.mkdir(genres_local)
     file_name = 'index.xml'
@@ -98,12 +113,12 @@ def init_genres_node():
         genre_file.write(index_xml)
 
 
-def get_filename_by_genre(genres):
+def get_filename_by_genre(genres, file_extension):
     filename_by_genre = {}
     for genre in genres:
         genre_name = genre.get('label')
         file_name = re.sub(r"(\W+)", '', genre_name.lower(), flags=re.MULTILINE)
-        filename_by_genre[genre_name] = file_name + '.xml'
+        filename_by_genre[genre_name] = file_name + file_extension
     return filename_by_genre
 
 
@@ -114,14 +129,18 @@ def preload_genres():
         init_genres_node()
 
     genres = get_genres()
-    filename_by_genre = get_filename_by_genre(genres)
+    filename_node_by_genre = get_filename_by_genre(genres, '.xml')
+    filename_smart_playlist_by_genre = get_filename_by_genre(genres, '.xsp')
     for (order, genre) in enumerate(genres, 1):
-        generate_genres_folder_node(genre, order, filename_by_genre)
+        generate_genres_folder_node(genre, order, filename_node_by_genre)
+        generate_genre_smart_playlist(genre, filename_smart_playlist_by_genre)
 
     dirs, files = xbmcvfs.listdir(genres_local)
-    potential_nodes = filename_by_genre.values()
+    potential_files = []
+    potential_files.extend(filename_node_by_genre.values())
+    potential_files.extend(filename_smart_playlist_by_genre.values())
     for file in files:
-        if file not in potential_nodes and file != 'index.xml':
+        if file not in potential_files and file != 'index.xml':
             path_to_delete = os.path.join(genres_local, file)
             xbmcvfs.delete(path_to_delete)
 
