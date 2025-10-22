@@ -1,8 +1,8 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addons><addon id="context.music.downloader" name="Downloader" version="1.0.9" provider-name="AcidZab">
+<addons><addon id="context.music.downloader" name="Downloader" version="1.1.0" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.0.1" />
-        <import addon="script.module.scansioni" version="1.0.9.1" />
+        <import addon="script.module.scansioni" version="1.1.0" />
     </requires>
     <extension point="kodi.context.item" library="addon.py">
         <item>
@@ -22,10 +22,10 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="context.playlist.append" name="Playlist Append" version="1.0.7" provider-name="AcidZab">
+</addon><addon id="context.playlist.append" name="Playlist Append" version="1.0.8" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.0.1" />
-        <import addon="script.module.scansioni" version="1.0.9.1" />
+        <import addon="script.module.scansioni" version="1.1.0" />
     </requires>
     <extension point="kodi.context.item" library="addon.py">
         <item>
@@ -42,10 +42,10 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="context.playlist.remove" name="Playlist Item Remover" version="1.0.5" provider-name="AcidZab">
+</addon><addon id="context.playlist.remove" name="Playlist Item Remover" version="1.0.6" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.0.1" />
-        <import addon="script.module.scansioni" version="1.0.9.1" />
+        <import addon="script.module.scansioni" version="1.1.0" />
     </requires>
     <extension point="kodi.context.item" library="addon.py">
         <item>
