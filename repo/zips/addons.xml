@@ -115,7 +115,7 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="script.genres.preloader" name="Genres Preloader" version="1.0.5" provider-name="AcidZab">
+</addon><addon id="script.genres.preloader" name="Genres Preloader" version="1.0.5.1" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.0.1" />
     </requires>
