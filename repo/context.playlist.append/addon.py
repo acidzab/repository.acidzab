@@ -1,5 +1,6 @@
 import os
 import sys
+from urllib.parse import quote
 
 import db_scan
 import xbmc
@@ -10,6 +11,10 @@ import xbmcvfs
 
 def log(msg):
     xbmc.log(str(msg), xbmc.LOGDEBUG)
+
+
+def encode_playlist_name(playlist_name):
+    return quote(playlist_name, safe='()=!$,*+:@/&\'')
 
 
 def write_playlist(folder, playlist, media, mode, db_params):
@@ -63,7 +68,7 @@ def read_playlist(playlist_path):
 def upload_to_central_directory(playlist_path, db_params):
     use_webdav = db_params.get('sourcetype') == 'webdav'
     filename = playlist_path.split(os.sep)[-1]
-    central_directory = f'{db_params.get('webdavsource')}/playlists/music/{filename}' if use_webdav else f'{db_params.get('sambasource')}/playlists/music/{filename}'
+    central_directory = f'{db_params.get('webdavsource')}/playlists/music/{encode_playlist_name(filename)}' if use_webdav else f'{db_params.get('sambasource')}/playlists/music/{filename}'
     xbmcvfs.copy(playlist_path, central_directory)
 
 
