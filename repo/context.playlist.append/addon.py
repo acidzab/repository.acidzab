@@ -60,7 +60,8 @@ def read_playlist(playlist_path):
 
 def upload_to_central_directory(playlist_path, db_params):
     use_webdav = db_params.get('sourcetype') == 'webdav'
-    central_directory = f'{db_params.get('webdavsource')}/playlists/music' if use_webdav else f'{db_params.get('sambasource')}/playlists/music'
+    filename = playlist_path.split(os.sep)[-1]
+    central_directory = f'{db_params.get('webdavsource')}/playlists/music/{filename}' if use_webdav else f'{db_params.get('sambasource')}/playlists/music/{filename}'
     xbmcvfs.copy(playlist_path, central_directory)
 
 
@@ -82,16 +83,16 @@ def main():
         if result > -1:
             log('Playlist: {0}'.format(basic_playlists[result]))
             if result == 0:
-                status = write_playlist(playlist_folder, None, media, 'w')
+                status = write_playlist(playlist_folder, None, media, 'w', db_params)
             else:
                 if not playlists['folder']:
                     playlist_folder = basic_playlists[result][1:6]
                     playlist = basic_playlists[result][8:len(basic_playlists[result])]
                 else:
                     playlist = basic_playlists[result]
-                status = write_playlist(playlist_folder, playlist, media, 'a')
+                status = write_playlist(playlist_folder, playlist, media, 'a', db_params)
     else:
-        status = write_playlist(playlist_folder, None, media, 'w')
+        status = write_playlist(playlist_folder, None, media, 'w', db_params)
     if status:
         icon_path = xbmcaddon.Addon().getAddonInfo('path') + '/' + 'icon.png'
         xbmcgui.Dialog().notification(addon_name, 'Added: {0}'.format(media_title), icon_path, 5000)

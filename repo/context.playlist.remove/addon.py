@@ -1,3 +1,4 @@
+import os
 import sys
 
 import db_scan
@@ -25,7 +26,8 @@ def remove_from_playlist(media_to_remove, db_params):
 
 def upload_to_central_directory(playlist_path, db_params):
     use_webdav = db_params.get('sourcetype') == 'webdav'
-    central_directory = f'{db_params.get('webdavsource')}/playlists/music' if use_webdav else f'{db_params.get('sambasource')}/playlists/music'
+    filename = playlist_path.split(os.sep)[-1]
+    central_directory = f'{db_params.get('webdavsource')}/playlists/music/{filename}' if use_webdav else f'{db_params.get('sambasource')}/playlists/music/{filename}'
     xbmcvfs.copy(playlist_path, central_directory)
 
 
