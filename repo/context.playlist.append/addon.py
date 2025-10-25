@@ -13,6 +13,7 @@ def log(msg):
 
 
 def write_playlist(folder, playlist, media, mode, db_params):
+    upload_to_central = db_params.get('centralplaylist')
     if not folder:
         folder_list = ['music']
         result = xbmcgui.Dialog().select('Seleziona la tipologia di playlist', folder_list)
@@ -45,7 +46,8 @@ def write_playlist(folder, playlist, media, mode, db_params):
             else:
                 f.write(media)
                 log('Added: {0}'.format(media))
-            upload_to_central_directory(playlist, db_params)
+            if upload_to_central:
+                upload_to_central_directory(playlist, db_params)
         return True
     except Exception as e:
         log('Error: {0}'.format(e))

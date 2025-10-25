@@ -13,6 +13,7 @@ def log(msg):
 
 
 def remove_from_playlist(media_to_remove, db_params):
+    upload_to_central = db_params.get('centralplaylist')
     lines_to_remove = media_to_remove.split('\n')
     folder_path = xbmcvfs.translatePath(xbmc.getInfoLabel('Container.FolderPath'))
     with xbmcvfs.File(folder_path, 'r') as fr:
@@ -21,7 +22,8 @@ def remove_from_playlist(media_to_remove, db_params):
         for line in lines:
             if line.strip('\n') not in lines_to_remove:
                 fw.write(line + '\n')
-    upload_to_central_directory(folder_path, db_params)
+    if upload_to_central:
+        upload_to_central_directory(folder_path, db_params)
 
 
 def upload_to_central_directory(playlist_path, db_params):
