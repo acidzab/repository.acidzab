@@ -1,6 +1,5 @@
 import os
 import sys
-from urllib.parse import unquote
 
 import db_scan
 import xbmc
@@ -13,7 +12,7 @@ def log(msg):
     xbmc.log(str(msg), xbmc.LOGDEBUG)
 
 
-def write_playlist(folder, playlist, media, mode):
+def write_playlist(folder, playlist, media, mode, db_params):
     if not folder:
         folder_list = ['music']
         result = xbmcgui.Dialog().select('Seleziona la tipologia di playlist', folder_list)
@@ -46,6 +45,7 @@ def write_playlist(folder, playlist, media, mode):
             else:
                 f.write(media)
                 log('Added: {0}'.format(media))
+            upload_to_central_directory(playlist, db_params)
         return True
     except Exception as e:
         log('Error: {0}'.format(e))
@@ -56,6 +56,12 @@ def read_playlist(playlist_path):
     with xbmcvfs.File(playlist_path) as f:
         playlist_content = f.read()
     return playlist_content
+
+
+def upload_to_central_directory(playlist_path, db_params):
+    use_webdav = db_params.get('sourcetype') == 'webdav'
+    central_directory = f'{db_params.get('webdavsource')}/playlists/music' if use_webdav else f'{db_params.get('sambasource')}/playlists/music'
+    xbmcvfs.copy(playlist_path, central_directory)
 
 
 def filter_playlist(playlists):

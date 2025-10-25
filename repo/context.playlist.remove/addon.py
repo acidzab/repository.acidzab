@@ -1,5 +1,4 @@
 import sys
-from urllib.parse import unquote
 
 import db_scan
 import xbmc
@@ -12,7 +11,7 @@ def log(msg):
     xbmc.log(str(msg), xbmc.LOGDEBUG)
 
 
-def remove_from_playlist(media_to_remove):
+def remove_from_playlist(media_to_remove, db_params):
     lines_to_remove = media_to_remove.split('\n')
     folder_path = xbmcvfs.translatePath(xbmc.getInfoLabel('Container.FolderPath'))
     with xbmcvfs.File(folder_path, 'r') as fr:
@@ -21,12 +20,19 @@ def remove_from_playlist(media_to_remove):
         for line in lines:
             if line.strip('\n') not in lines_to_remove:
                 fw.write(line + '\n')
+    upload_to_central_directory(folder_path, db_params)
+
+
+def upload_to_central_directory(playlist_path, db_params):
+    use_webdav = db_params.get('sourcetype') == 'webdav'
+    central_directory = f'{db_params.get('webdavsource')}/playlists/music' if use_webdav else f'{db_params.get('sambasource')}/playlists/music'
+    xbmcvfs.copy(playlist_path, central_directory)
 
 
 def main():
     # Chiedi conferma all'utente
     if xbmcgui.Dialog().yesno("Rimuovi dalla playlist", "Vuoi rimuovere il brano dalla playlist ?"):
-        remove_from_playlist(media)
+        remove_from_playlist(media, db_params)
         xbmc.executebuiltin('Container.Refresh')
         icon_path = xbmcaddon.Addon().getAddonInfo('path') + '/' + 'icon.png'
         xbmcgui.Dialog().notification(addon_name, 'Rimossa: {0}'.format(media_title), icon_path, 5000)
