@@ -20,22 +20,28 @@ def encode_playlist_name(playlist_name):
 def remove_from_playlist(media_to_remove, db_params):
     upload_to_central = db_params.get('centralplaylist')
     lines_to_remove = media_to_remove.split('\n')
+    # porkaround tremendo: cancello anche con un solo brano dentro
+    lines_with_one_track = 4
+    is_playlist_deletable = False
     folder_path = xbmcvfs.translatePath(xbmc.getInfoLabel('Container.FolderPath'))
     with xbmcvfs.File(folder_path, 'r') as fr:
         lines = fr.read().split('\n')
+        if len(lines) == lines_with_one_track:
+            is_playlist_deletable = True
     with xbmcvfs.File(folder_path, 'w') as fw:
         for line in lines:
             if line.strip('\n') not in lines_to_remove:
                 fw.write(line + '\n')
     if upload_to_central:
-        upload_to_central_directory(folder_path, db_params)
+        upload_to_central_directory(folder_path, db_params, is_playlist_deletable)
 
 
-def upload_to_central_directory(playlist_path, db_params):
+def upload_to_central_directory(playlist_path, db_params, is_playlist_deletable):
     use_webdav = db_params.get('sourcetype') == 'webdav'
     filename = playlist_path.split(os.sep)[-1]
     central_directory = f'{db_params.get('webdavsource')}/playlists/music/{encode_playlist_name(filename)}' if use_webdav else f'{db_params.get('sambasource')}/playlists/music/{filename}'
-    if not xbmcvfs.exists(playlist_path):
+    if is_playlist_deletable:
+        xbmcvfs.delete(playlist_path)
         xbmcvfs.delete(central_directory)
     else:
         xbmcvfs.copy(playlist_path, central_directory)
