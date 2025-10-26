@@ -21,17 +21,20 @@ def remove_from_playlist(media_to_remove, db_params):
     upload_to_central = db_params.get('centralplaylist')
     lines_to_remove = media_to_remove.split('\n')
     # porkaround tremendo: cancello anche con un solo brano dentro
-    lines_with_one_track = 4
+    lines_with_one_track = 3
     is_playlist_deletable = False
     folder_path = xbmcvfs.translatePath(xbmc.getInfoLabel('Container.FolderPath'))
     with xbmcvfs.File(folder_path, 'r') as fr:
         lines = fr.read().split('\n')
-        if len(lines) == lines_with_one_track:
-            is_playlist_deletable = True
     with xbmcvfs.File(folder_path, 'w') as fw:
+        written_lines = 0
         for line in lines:
             if line.strip('\n') not in lines_to_remove:
                 fw.write(line + '\n')
+                written_lines += 1
+        if written_lines == lines_with_one_track:
+            is_playlist_deletable = True
+
     if upload_to_central:
         upload_to_central_directory(folder_path, db_params, is_playlist_deletable)
 
