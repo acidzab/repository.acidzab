@@ -35,7 +35,10 @@ def upload_to_central_directory(playlist_path, db_params):
     use_webdav = db_params.get('sourcetype') == 'webdav'
     filename = playlist_path.split(os.sep)[-1]
     central_directory = f'{db_params.get('webdavsource')}/playlists/music/{encode_playlist_name(filename)}' if use_webdav else f'{db_params.get('sambasource')}/playlists/music/{filename}'
-    xbmcvfs.copy(playlist_path, central_directory)
+    if not xbmcvfs.exists(playlist_path):
+        xbmcvfs.delete(central_directory)
+    else:
+        xbmcvfs.copy(playlist_path, central_directory)
 
 
 def main():
