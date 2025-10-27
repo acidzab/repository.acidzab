@@ -17,8 +17,7 @@ def encode_playlist_name(playlist_name):
     return quote(playlist_name, safe='()=!$,*+:@/&\'')
 
 
-def write_playlist(folder, playlist, media, mode, db_params):
-    upload_to_central = db_params.get('centralplaylist')
+def write_playlist(folder, playlist, media, mode):
     if not folder:
         folder_list = ['music']
         result = xbmcgui.Dialog().select('Seleziona la tipologia di playlist', folder_list)
@@ -51,8 +50,6 @@ def write_playlist(folder, playlist, media, mode, db_params):
             else:
                 f.write(media)
                 log('Added: {0}'.format(media))
-            if upload_to_central:
-                upload_to_central_directory(playlist, db_params)
         return True
     except Exception as e:
         log('Error: {0}'.format(e))
@@ -63,16 +60,6 @@ def read_playlist(playlist_path):
     with xbmcvfs.File(playlist_path) as f:
         playlist_content = f.read()
     return playlist_content
-
-
-def upload_to_central_directory(playlist_path, db_params):
-    use_webdav = db_params.get('sourcetype') == 'webdav'
-    filename = playlist_path.split(os.sep)[-1]
-    central_directory = f'{db_params.get('webdavsource')}/playlists/music/{encode_playlist_name(filename)}' if use_webdav else f'{db_params.get('sambasource')}/playlists/music/{filename}'
-    if use_webdav and xbmcvfs.exists(central_directory):
-        # porkaround: webdav non supporta la sostituzione
-        xbmcvfs.delete(central_directory)
-    xbmcvfs.copy(playlist_path, central_directory)
 
 
 def filter_playlist(playlists):
@@ -93,16 +80,16 @@ def main():
         if result > -1:
             log('Playlist: {0}'.format(basic_playlists[result]))
             if result == 0:
-                status = write_playlist(playlist_folder, None, media, 'w', db_params)
+                status = write_playlist(playlist_folder, None, media, 'w')
             else:
                 if not playlists['folder']:
                     playlist_folder = basic_playlists[result][1:6]
                     playlist = basic_playlists[result][8:len(basic_playlists[result])]
                 else:
                     playlist = basic_playlists[result]
-                status = write_playlist(playlist_folder, playlist, media, 'a', db_params)
+                status = write_playlist(playlist_folder, playlist, media, 'a')
     else:
-        status = write_playlist(playlist_folder, None, media, 'w', db_params)
+        status = write_playlist(playlist_folder, None, media, 'w')
     if status:
         icon_path = xbmcaddon.Addon().getAddonInfo('path') + '/' + 'icon.png'
         xbmcgui.Dialog().notification(addon_name, 'Added: {0}'.format(media_title), icon_path, 5000)
