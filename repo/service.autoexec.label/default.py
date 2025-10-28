@@ -345,11 +345,8 @@ def sync_paths_to_scan(db_params, music_db_name):
     local_props = get_properties(False, db_params)
     local_last_scanned = local_props.get('librarylastupdated')
     sources = get_sources()
-    playlist_source = None
-    for source in sources:
-        if 'playlists' in source:
-            playlist_source = f'{source}/music/'
-            break
+    use_webdav = db_params.get('sourcetype') == 'webdav'
+    playlist_source = f'{db_params.get('webdavsource')}/playlists/music/' if use_webdav else f'{db_params.get("sambasource")}/playlists/music/'
     if playlist_source:
         sync_playlists_to_central_path(playlist_source, db_params)
     albums_to_sync = get_albums_to_sync(local_last_scanned, music_db_name, db_params, sources)
