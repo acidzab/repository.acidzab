@@ -22,7 +22,7 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="context.playlist.append" name="Playlist Append" version="1.1.6" provider-name="AcidZab">
+</addon><addon id="context.playlist.append" name="Playlist Append" version="1.1.7" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.0.1" />
         <import addon="script.module.scansioni" version="1.1.0" />
@@ -42,7 +42,7 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="context.playlist.remove" name="Playlist Item Remover" version="1.1.4" provider-name="AcidZab">
+</addon><addon id="context.playlist.remove" name="Playlist Item Remover" version="1.1.5" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.0.1" />
         <import addon="script.module.scansioni" version="1.1.0" />
@@ -270,7 +270,7 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="service.autoexec.label" name="Library Sync" version="1.2.6" provider-name="AcidZab">
+</addon><addon id="service.autoexec.label" name="Library Sync" version="1.2.7" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.0.1" />
         <import addon="script.module.scansioni" version="1.1.0" />
@@ -281,7 +281,9 @@
     </extension>
     <extension point="xbmc.addon.metadata">
         <summary lang="it">Aggiorna la libreria all'avvio</summary>
-        <description lang="it">Servizio che si scatena all'avvio di Kodi per allineare il database con il server centrale</description>
+        <description lang="it">Servizio che si scatena all'avvio di Kodi per allineare il database con il server
+            centrale
+        </description>
         <platform>all</platform>
         <license>GNU GENERAL PUBLIC LICENSE Version 2</license>
         <assets>
