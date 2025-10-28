@@ -74,9 +74,7 @@ def get_directory(smb_path, db_params):
             "directory": smb_path
         }
     }
-    get_directory_req = db_scan.execute_from_central_kodi_webserver(db_params, json_get_directory_payload).get('result')
-    response = json.loads(get_directory_req)
-    return response
+    return db_scan.execute_from_central_kodi_webserver(db_params, json_get_directory_payload).get('result')
 
 
 # controllo che sia una directory valida guardando che sia presente dentro i path sul db e che non sia una sorgente
