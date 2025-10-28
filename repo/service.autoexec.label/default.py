@@ -227,6 +227,7 @@ def init_music_database():
         monitor.reset()
         xbmc.log(f"Sincronizzazione libreria completata", xbmc.LOGINFO)
         emit_final_dialog(addon_name)
+        execute_addon_with_builtin('service.scan.checker')
 
 
 def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params):
