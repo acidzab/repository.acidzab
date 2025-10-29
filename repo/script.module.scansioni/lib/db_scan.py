@@ -82,7 +82,7 @@ def read_params():
 
 def get_exec_mode():
     # exec mode possono essere o scan o init, scanner trigger prevede anche align
-    exec_mode = 'scan'
+    exec_mode = None
     parsed_params = read_params()
     if parsed_params and parsed_params.get('mode'):
         exec_mode = parsed_params.get('mode')[0]

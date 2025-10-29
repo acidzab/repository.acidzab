@@ -845,9 +845,6 @@ def replace_local_art_with_artworker(id_album, db_params, central_art):
 
 
 def align_media_to_central_db(paths, local_paths, exec_mode, db_params):
-    # visto che la modalità align è prevista esclusivamente da questo addon, resetto al default scan
-    if exec_mode == 'align':
-        exec_mode = 'scan'
     progress = xbmcgui.DialogProgressBG()
     media_by_id = get_media_details_from_directory(paths, local_paths, db_params)
     music_db_name = db_scan.get_latest_kodi_dbs().get('MyMusic')
@@ -1176,35 +1173,22 @@ def _process_artists(central_artists_by_mbid, local_artists_by_mbid):
 def trigger_scan():
     paths_to_scan = []
     paths_to_scan_local = []
-    paths_to_align = []
-    paths_to_align_local = []
     exec_mode = db_scan.get_exec_mode()
     paths_from_params = db_scan.get_paths_from_params()
     db_params = db_scan.get_db_params()
     use_webdav = db_params.get('sourcetype') == 'webdav'
     if paths_from_params:
         for path in paths_from_params:
-            if exec_mode == 'align':
-                if path not in paths_to_align:
-                    paths_to_align.append(path)
-                if use_webdav:
-                    path = db_scan.convert_from_smb_to_davs(path)
-                if path not in paths_to_align_local:
-                    paths_to_align_local.append(path)
-            else:
-                if path not in paths_to_scan:
-                    paths_to_scan.append(path)
-                if use_webdav:
-                    path = db_scan.convert_from_smb_to_davs(path)
-                if path not in paths_to_scan_local:
-                    paths_to_scan_local.append(path)
-    if exec_mode != 'align':
-        force_path_rescan(paths_to_scan_local)
-        scan_folders(paths_to_scan_local)
-        clean_paths()
-        paths_to_align.extend(paths_to_scan)
-        paths_to_align_local.extend(paths_to_scan_local)
-    align_media_to_central_db(paths_to_align, paths_to_align_local, exec_mode, db_params)
+            if path not in paths_to_scan:
+                paths_to_scan.append(path)
+            if use_webdav:
+                path = db_scan.convert_from_smb_to_davs(path)
+            if path not in paths_to_scan_local:
+                paths_to_scan_local.append(path)
+    force_path_rescan(paths_to_scan_local)
+    scan_folders(paths_to_scan_local)
+    clean_paths()
+    align_media_to_central_db(paths_to_scan, paths_to_scan_local, exec_mode, db_params)
     align_monitor = AlignMonitor()
     if align_monitor.wait_for_align():
         align_monitor.reset()

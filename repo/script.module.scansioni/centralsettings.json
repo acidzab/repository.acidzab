@@ -12,7 +12,8 @@
 	"artworkerbasehost": "",
 	"sourcetype": "webdav/samba",
 	"downloadfolder": "",
-	"scanserver":"",
-	"sambasource":"",
-	"webdavsource":""
+	"scanserver": "",
+	"sambasource": "",
+	"webdavsource": "",
+	"centralplaylist": ""
 }
