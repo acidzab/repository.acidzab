@@ -98,7 +98,7 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="script.file.viewer" name="File Viewer" version="1.2.0" provider-name="AcidZab">
+</addon><addon id="script.file.viewer" name="File Viewer" version="1.2.1" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.0.1" />
         <import addon="script.module.scansioni" version="1.1.0" />
@@ -252,7 +252,7 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="script.texture.refresh" name="Texture Refresher" version="3.2.5" provider-name="AcidZab">
+</addon><addon id="script.texture.refresh" name="Texture Refresher" version="3.2.6" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.0.1" />
         <import addon="script.module.scansioni" version="1.1.0" />

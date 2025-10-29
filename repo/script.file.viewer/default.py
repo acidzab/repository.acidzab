@@ -132,7 +132,7 @@ def get_paths_to_convert(albums_by_source):
         album_paths = albums_by_source.get(source)
         for album_path in album_paths:
             # calcolo i path
-            # step 1: rimuovo il sorgente dal path
+            # step 1: rimuovo la sorgente dal path
             path_without_source = album_path.replace(source, '')
             # step 2: splitto il path filtrato, con lo strip per togliere l'ultimo elemento vuoto a causa dello / finale
             splitted_path = [path for path in path_without_source.split('/') if path.strip()]
@@ -324,10 +324,14 @@ def convert_playlists_to_info_media_view():
 def switch_to_thumb_view_for_files():
     db_params = db_scan.get_db_params()
     paths_from_params = db_scan.get_paths_from_params()
+    exec_mode = db_scan.get_exec_mode()
     use_webdav = db_params.get('sourcetype') == 'webdav'
     sources = get_sources()
     sources_paths = [source.get('file') for source in sources]
-    id_albums = get_ids_to_refresh(paths_from_params, use_webdav)
+    if exec_mode == 'init':
+        id_albums = get_ids_to_refresh(sources_paths, use_webdav)
+    else:
+        id_albums = get_ids_to_refresh(paths_from_params, use_webdav)
     album_paths = get_scanned_albums_paths(id_albums)
     albums_by_source = {}
     for source_path in sources_paths:
