@@ -65,7 +65,7 @@ def get_ids_to_refresh(paths_from_params, use_webdav):
     paths = []
     if paths_from_params:
         for path in paths_from_params:
-            if use_webdav:
+            if use_webdav and not path.startswith('dav'):
                 path = db_scan.convert_from_smb_to_davs(path)
             if path not in paths:
                 paths.append(path)
