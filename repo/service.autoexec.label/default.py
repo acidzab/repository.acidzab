@@ -65,7 +65,7 @@ def get_sources():
     return [source.get('file') for source in sources]
 
 
-def get_directory(smb_path, db_params):
+def get_central_playlists(smb_path, db_params):
     json_get_directory_payload = {
         "jsonrpc": "2.0",
         "method": "Files.GetDirectory",
@@ -200,11 +200,13 @@ def get_album_infos(use_central, db_params, music_db_name, sources):
 
 
 def sync_playlists_to_central_path(playlist_source, db_params):
-    playlists_response = get_directory(playlist_source, db_params)
+    playlists_response = get_central_playlists(playlist_source, db_params)
     if playlists_response and playlists_response.get('files'):
         playlist_path = xbmcvfs.translatePath('special://profile/playlists/music/')
+        use_webdav = db_params.get('sourcetype') == 'webdav'
         for playlist in playlists_response.get('files'):
-            xbmcvfs.copy(playlist.get('file'), playlist_path)
+            central_playlist_path = db_scan.convert_from_smb_to_davs(playlist.get('file')) if use_webdav else playlist.get('file')
+            xbmcvfs.copy(central_playlist_path, playlist_path)
 
 
 def get_releases_to_align(db_params, music_db_name, sources):
@@ -345,9 +347,9 @@ def sync_paths_to_scan(db_params, music_db_name):
     local_props = get_properties(False, db_params)
     local_last_scanned = local_props.get('librarylastupdated')
     sources = get_sources()
-    use_webdav = db_params.get('sourcetype') == 'webdav'
-    playlist_source = f'{db_params.get('webdavsource')}/playlists/music/' if use_webdav else f'{db_params.get("sambasource")}/playlists/music/'
-    if playlist_source:
+    central_playlists_enabled = db_params.get('centralplaylist')
+    if central_playlists_enabled:
+        playlist_source = f'{db_params.get("sambasource")}/playlists/music/'
         sync_playlists_to_central_path(playlist_source, db_params)
     albums_to_sync = get_albums_to_sync(local_last_scanned, music_db_name, db_params, sources)
     albums_to_align = get_releases_to_align(db_params, music_db_name, sources)
