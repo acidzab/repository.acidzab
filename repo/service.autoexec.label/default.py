@@ -1,4 +1,5 @@
 import json
+import os.path
 import sqlite3
 import time
 from datetime import datetime, timedelta
@@ -205,8 +206,10 @@ def sync_playlists_to_central_path(playlist_source, db_params):
         playlist_path = xbmcvfs.translatePath('special://profile/playlists/music/')
         use_webdav = db_params.get('sourcetype') == 'webdav'
         for playlist in playlists_response.get('files'):
-            central_playlist_path = db_scan.convert_from_smb_to_davs(playlist.get('file')) if use_webdav else playlist.get('file')
-            xbmcvfs.copy(central_playlist_path, playlist_path)
+            central_playlist_path = db_scan.convert_from_smb_to_davs(
+                playlist.get('file')) if use_webdav else playlist.get('file')
+            local_path = os.path.join(playlist_path, playlist.get('label'))
+            xbmcvfs.copy(central_playlist_path, local_path)
 
 
 def get_releases_to_align(db_params, music_db_name, sources):
