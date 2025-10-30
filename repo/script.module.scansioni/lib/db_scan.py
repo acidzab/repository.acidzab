@@ -97,12 +97,11 @@ def get_paths_from_params():
     return paths_from_params
 
 
-def get_jsons_to_process(db_params):
-    # ogni client ha la sua tabella dedicata che funge da coda delle scansioni da processare
-    # una volta processata la scansione si rimuove dalla coda
+def reset_scan_status(db_params):
+    # ogni client ha la sua tabella dedicata che funge da coda per controllare se sono state effettuate scansioni
+    # una volta processata la scansione si resetta lo status a false
 
-    scans = []
-    ids_to_remove = []
+    ids_to_disable = []
     host = db_params.get('host')
     username = db_params.get('user')
     password = db_params.get('pass')
@@ -115,15 +114,16 @@ def get_jsons_to_process(db_params):
             central_cursor.execute(query)
             results = central_cursor.fetchall()
             for result in results:
-                albums_from_json = json.loads(result.get('content_scan'))
-                scans.append(albums_from_json)
-                ids_to_remove.append(result.get('id'))
-            if ids_to_remove:
-                for id_to_remove in ids_to_remove:
-                    delete_query = '''DELETE FROM {} WHERE id = %s '''.format(table)
-                    central_cursor.execute(delete_query, (id_to_remove,))
+                ids_to_disable.append(result.get('id'))
+            if ids_to_disable:
+                json_for_scan_reset = {
+                    "scan": False
+                }
+                content_scan = json.dumps(json_for_scan_reset, ensure_ascii=False)
+                for id_to_disable in ids_to_disable:
+                    update_query = '''UPDATE {} SET content_scan = %s WHERE id = %s '''.format(table)
+                    central_cursor.execute(update_query, (content_scan, id_to_disable,))
                     central_db.commit()
-    return scans
 
 
 def execute_from_central_kodi_webserver(db_params, payload):

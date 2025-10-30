@@ -372,7 +372,7 @@ def sync_library():
     log(addon_name)
     db_params = db_scan.get_db_params()
     if db_params.get('table'):
-        db_scan.get_jsons_to_process(db_params)
+        db_scan.reset_scan_status(db_params)
     exec_mode = 'scan'
     music_db_name = db_scan.get_latest_kodi_dbs().get('MyMusic')
     current_scans = sync_paths_to_scan(db_params, music_db_name)
