@@ -68,8 +68,12 @@ def read_playlist(playlist_path):
 def upload_to_central_directory(playlist_path, db_params):
     use_webdav = db_params.get('sourcetype') == 'webdav'
     filename = playlist_path.split(os.sep)[-1]
-    central_directory = f'{db_params.get('webdavsource')}/playlists/music/{encode_playlist_name(filename)}' if use_webdav else f'{db_params.get('sambasource')}/playlists/music/{filename}'
-    xbmcvfs.copy(playlist_path, central_directory)
+    central_playlist_path = f'{db_params.get('sambasource')}/playlists/music/{filename}'
+    if use_webdav:
+        #porkaround: non passo da webdav per scrivere ma da sftp
+        writing_source = db_params.get('webdavsource').replace('davs', 'sftp')
+        central_playlist_path = f'{writing_source}/playlists/music/{filename}'
+    xbmcvfs.copy(playlist_path, central_playlist_path)
 
 
 def filter_playlist(playlists):
