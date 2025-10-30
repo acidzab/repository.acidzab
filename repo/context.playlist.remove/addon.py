@@ -44,7 +44,7 @@ def upload_to_central_directory(playlist_path, db_params, is_playlist_deletable)
     filename = playlist_path.split(os.sep)[-1]
     central_playlist_path = f'{db_params.get('sambasource')}/playlists/music/{filename}'
     if use_webdav:
-        #porkaround: non passo da webdav per scrivere ma da sftp
+        # porkaround: non passo da webdav per scrivere ma da sftp
         writing_source = db_params.get('webdavsource').replace('davs', 'sftp')
         central_playlist_path = f'{writing_source}/playlists/music/{filename}'
     if is_playlist_deletable:
@@ -75,10 +75,11 @@ if __name__ == '__main__':
         current_item = sys.listitem
         media_title = current_item.getLabel()
         track_length = current_item.getMusicInfoTag().getDuration()
-        media_location = current_item.getMusicInfoTag().getURL()
+        media_location = current_item.getPath()
         if use_webdav:
-            media_location = db_scan.convert_from_davs_to_smb(current_item.getMusicInfoTag().getURL())
+            media_location = db_scan.convert_from_davs_to_smb(current_item.getPath())
     media = '#EXTINF:{0},{1}\n{2}\n'.format(track_length, media_title, media_location)
     log('Title: {0}'.format(str(media_title)))
     log('Length in seconds: {0}'.format(str(track_length)))
+    log('Media path {0}'.format(str(media_location)))
     main()
