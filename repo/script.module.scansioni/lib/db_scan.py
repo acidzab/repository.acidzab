@@ -4,7 +4,6 @@ import re
 import sys
 from urllib.parse import unquote, quote, parse_qs
 
-import pymysql.cursors
 import requests
 import xbmc
 import xbmcvfs
@@ -98,32 +97,13 @@ def get_paths_from_params():
 
 
 def reset_scan_status(db_params):
-    # ogni client ha la sua tabella dedicata che funge da coda per controllare se sono state effettuate scansioni
-    # una volta processata la scansione si resetta lo status a false
-
-    ids_to_disable = []
-    host = db_params.get('host')
-    username = db_params.get('user')
-    password = db_params.get('pass')
     table = db_params.get('table')
-    query = '''SELECT * FROM %s WHERE content_scan IS NOT NULL''' % table
-    central_db = pymysql.connect(host=host, user=username, password=password, database='scansioni', port=3306,
-                                 cursorclass=pymysql.cursors.DictCursor, connect_timeout=18000)
-    with central_db:
-        with central_db.cursor() as central_cursor:
-            central_cursor.execute(query)
-            results = central_cursor.fetchall()
-            for result in results:
-                ids_to_disable.append(result.get('id'))
-            if ids_to_disable:
-                json_for_scan_reset = {
-                    "scan": False
-                }
-                content_scan = json.dumps(json_for_scan_reset, ensure_ascii=False)
-                for id_to_disable in ids_to_disable:
-                    update_query = '''UPDATE {} SET content_scan = %s WHERE id = %s '''.format(table)
-                    central_cursor.execute(update_query, (content_scan, id_to_disable,))
-                    central_db.commit()
+    url = f'{db_params.get('scanserver')}/scans/{table}/status'
+    json_for_scan_reset = {
+        "scan": False
+    }
+    request = requests.post(url, json=json.dumps(json_for_scan_reset, ensure_ascii=False))
+    request.raise_for_status()
 
 
 def execute_from_central_kodi_webserver(db_params, payload):
