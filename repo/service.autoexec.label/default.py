@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 
 import db_scan
 import pymysql
+import requests
 import xbmc
 import xbmcaddon
 import xbmcgui
@@ -237,8 +238,19 @@ def get_releases_to_align(db_params, music_db_name, sources):
     return paths_to_scan
 
 
+def check_for_scans(db_params):
+    table = db_params.get('table')
+    url = f'{db_params.get('scanserver')}/scans/{table}/status'
+    scan_status = requests.get(url)
+    scan_status.raise_for_status()
+    scan_results = scan_status.json()
+    return scan_results and scan_results.get('scan')
+
+
 def init_music_database():
     db_params = db_scan.get_db_params()
+    if db_params.get('table') and check_for_scans(db_params):
+        db_scan.reset_scan_status(db_params)
     db_versions = db_scan.get_latest_kodi_dbs()
     music_db_name = db_versions.get('MyMusic')
     paths_to_scan = sync_paths_to_scan(db_params, music_db_name)
