@@ -102,7 +102,7 @@ def reset_scan_status(db_params):
     json_for_scan_reset = {
         "scan": False
     }
-    request = requests.post(url, json=json.dumps(json_for_scan_reset, ensure_ascii=False))
+    request = requests.post(url, json=json_for_scan_reset)
     request.raise_for_status()
 
 
