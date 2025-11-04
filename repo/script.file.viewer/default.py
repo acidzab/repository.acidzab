@@ -39,26 +39,22 @@ def get_sources():
     return sources
 
 
-def get_id_albums(id_albums, path):
-    get_directory_payload = {
-        "jsonrpc": "2.0",
-        "method": "Files.GetDirectory",
-        "id": "1",
-        "params": {
-            "directory": path,
-            "media": "music",
-            "properties": [
-                "albumid"
-            ]
-        }
-    }
-    json_result = json.loads(xbmc.executeJSONRPC(json.dumps(get_directory_payload, ensure_ascii=False))).get('result')
-    if json_result:
-        for file in json_result.get('files'):
-            if file.get('albumid') and file.get('albumid') not in id_albums:
-                id_albums.append(file.get('albumid'))
-            elif file.get('type') == 'unknown' and file.get('filetype') == 'directory':
-                get_id_albums(id_albums, file.get('file'))
+def get_id_albums(path):
+    music_db_path = db_scan.get_music_db_path()
+    music_db = sqlite3.connect(music_db_path)
+    music_db.set_trace_callback(log)
+    music_db_cursor = music_db.cursor()
+    query = '''
+            SELECT DISTINCT vsong.idAlbum
+            FROM songview vsong
+            WHERE vsong.strPath LIKE ?
+            '''
+    like_path = f'{path}%'
+    results = music_db_cursor.execute(query, (like_path,)).fetchall()
+    music_db_cursor.close()
+    music_db.close()
+    album_ids = [idAlbum for (idAlbum,) in results]
+    return album_ids
 
 
 def get_ids_to_refresh(paths_from_params, use_webdav):
@@ -71,7 +67,7 @@ def get_ids_to_refresh(paths_from_params, use_webdav):
                 paths.append(path)
     id_albums = []
     for path in paths:
-        get_id_albums(id_albums, path)
+        id_albums.extend(get_id_albums(path))
     return id_albums
 
 
