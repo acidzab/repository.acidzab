@@ -16,8 +16,11 @@ def execute_addon_with_builtin(addon_id, params=None):
 def get_scans(db_params):
     table = db_params.get('table')
     url = f'{db_params.get('scanserver')}/scans/{table}/status'
-    scan_status = requests.get(url)
-    scan_status.raise_for_status()
+    try:
+        scan_status = requests.get(url)
+        scan_status.raise_for_status()
+    except requests.exceptions.RequestException:
+        return None
     return scan_status.json()
 
 
