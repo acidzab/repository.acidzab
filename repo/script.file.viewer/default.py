@@ -325,7 +325,7 @@ def switch_to_thumb_view_for_files():
     sources = get_sources()
     sources_paths = [source.get('file') for source in sources]
     ## exec mode non valorizzato -> lancio secco dagli addon
-    if not exec_mode:
+    if not exec_mode or exec_mode == 'init':
         id_albums = get_ids_to_refresh(sources_paths, use_webdav)
     else:
         id_albums = get_ids_to_refresh(paths_from_params, use_webdav)
