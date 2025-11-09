@@ -342,7 +342,7 @@ def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params, sources)
         local_info = local_dt_added_by_mbid.get(mbid)
         local_dt_added = local_info.get('dateAdded') if local_info else None
         central_dt_added = central_info.get('dateAdded') if central_info else None
-        if central_dt_added and local_dt_added and local_dt_added != central_dt_added:
+        if central_dt_added and (not local_dt_added or local_dt_added != central_dt_added):
             albums_to_sync.extend(central_info.get('paths'))
     return albums_to_sync
 
