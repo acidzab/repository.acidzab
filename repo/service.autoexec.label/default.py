@@ -316,6 +316,7 @@ def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params, sources)
     music_db.row_factory = sqlite3.Row
     music_db.set_trace_callback(log)
     music_db_cursor = music_db.cursor()
+    query = query.replace('%s', '?')
     music_db_cursor.execute(query, (from_date_str_local, to_date_str))
     local_results.extend(music_db_cursor.fetchall())
     music_db_cursor.close()
