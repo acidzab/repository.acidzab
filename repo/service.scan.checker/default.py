@@ -35,6 +35,8 @@ def execute_service():
         current_scans = get_scans(db_params)
         if current_scans and current_scans.get('scan') and not xbmc.getCondVisibility('Library.IsScanningMusic'):
             log('È stata effettuata una scansione, procediamo ad effettuare la scansione')
+            if db_params.get('table'):
+                db_scan.reset_scan_status(db_params)
             execute_addon_with_builtin('service.autoexec.label')
 
 
