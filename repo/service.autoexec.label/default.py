@@ -268,24 +268,18 @@ def init_music_database():
 
 
 def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params, sources):
-    central_query = '''
-                    SELECT songview.strPath,
-                           album.dateAdded,
-                           album.idAlbum,
-                           album.strMusicBrainzAlbumID
-                    FROM album
-                             JOIN songview
-                                  ON songview.idAlbum = album.idAlbum
-                    WHERE album.dateAdded BETWEEN %s
-                              AND %s
-                    GROUP BY songview.strPath
-                    ORDER BY album.dateAdded'''
-    query_local = '''
-                  SELECT songview.strPath, album.dateAdded, album.idAlbum, album.strMusicBrainzAlbumID
-                  FROM album
-                           JOIN songview ON songview.idAlbum = album.idAlbum
-                  WHERE songview.strPath IN (%s)
-                  GROUP BY songview.strPath'''
+    query = '''
+            SELECT songview.strPath,
+                   album.dateAdded,
+                   album.idAlbum,
+                   album.strMusicBrainzAlbumID
+            FROM album
+                     JOIN songview
+                          ON songview.idAlbum = album.idAlbum
+            WHERE album.dateAdded BETWEEN %s
+                      AND %s
+            GROUP BY songview.strPath
+            ORDER BY album.dateAdded'''
     from_date_str_local = safe_strptime(dt_last_scanned_local, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
     to_date = datetime.now() + timedelta(days=1)
     to_date_str = to_date.strftime('%Y-%m-%d')
@@ -300,12 +294,11 @@ def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params, sources)
                                  cursorclass=pymysql.cursors.DictCursor, connect_timeout=18000)
     with central_db:
         with central_db.cursor() as central_cursor:
-            central_cursor.execute(central_query, (from_date_str_local, to_date_str))
-            log(central_cursor.mogrify(central_query, (from_date_str_local, to_date_str)))
+            central_cursor.execute(query, (from_date_str_local, to_date_str))
+            log(central_cursor.mogrify(query, (from_date_str_local, to_date_str)))
             central_results.extend(central_cursor.fetchall())
 
     central_dt_added_by_mbid = {}
-    local_paths_to_check = []
     if central_results:
         paths_by_id_album = {}
         for result in central_results:
@@ -313,8 +306,6 @@ def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params, sources)
             if not album_paths:
                 album_paths = []
             album_paths.append(result.get('strPath'))
-            local_paths_to_check.append(
-                db_scan.convert_from_smb_to_davs(result.get('strPath')) if use_webdav else result.get('strPath'))
             paths_by_id_album[result.get('idAlbum')] = album_paths
         album_path_by_id = get_album_paths_by_id_album(paths_by_id_album, sources)
         central_dt_added_by_mbid = {
@@ -325,11 +316,8 @@ def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params, sources)
     music_db.row_factory = sqlite3.Row
     music_db.set_trace_callback(log)
     music_db_cursor = music_db.cursor()
-    chunks = [local_paths_to_check[i:i + 999] for i in range(0, len(local_paths_to_check), 999)]
-    for chunk in chunks:
-        placeholders = ','.join(['?'] * len(chunk))
-        music_db_cursor.execute(query_local % placeholders, chunk)
-        local_results.extend(music_db_cursor.fetchall())
+    music_db_cursor.execute(query, (from_date_str_local, to_date_str))
+    local_results.extend(music_db_cursor.fetchall())
     music_db_cursor.close()
     music_db.close()
 
