@@ -73,7 +73,7 @@ if __name__ == '__main__':
     if xbmc.getCondVisibility('Container.Content(songs)') == 1:
         log('Container: songs')
         current_item = sys.listitem
-        media_title = current_item.getLabel()
+        media_title = f'{current_item.getMusicInfoTag().getTrack()}. {current_item.getMusicInfoTag().getArtist()} - {current_item.getMusicInfoTag().getTitle()}'
         track_length = current_item.getMusicInfoTag().getDuration()
         media_location = current_item.getPath()
         if use_webdav:
