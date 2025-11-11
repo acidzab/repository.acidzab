@@ -22,7 +22,7 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="context.playlist.append" name="Playlist Append" version="1.1.9" provider-name="AcidZab">
+</addon><addon id="context.playlist.append" name="Playlist Append" version="1.2.0" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.0.1" />
         <import addon="script.module.scansioni" version="1.1.1" />
