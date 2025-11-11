@@ -128,7 +128,8 @@ if __name__ == '__main__':
         log('Container: songs')
         playlists.update({'folder': 'music'})
         current_item = sys.listitem
-        media_title = f'{current_item.getMusicInfoTag().getTrack()}. {current_item.getMusicInfoTag().getArtist()} - {current_item.getMusicInfoTag().getTitle()}'
+        track_number = '{:02}'.format(current_item.getMusicInfoTag().getTrack())
+        media_title = f'{track_number}. {current_item.getMusicInfoTag().getArtist()} - {current_item.getMusicInfoTag().getTitle()}'
         basic_playlists = filter_playlist(playlists['music'])
         track_length = current_item.getMusicInfoTag().getDuration()
         media_location = current_item.getMusicInfoTag().getURL()
