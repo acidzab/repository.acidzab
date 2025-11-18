@@ -204,13 +204,18 @@ def get_album_infos(use_central, db_params, music_db_name, sources):
 def sync_playlists_to_central_path(playlist_source, db_params):
     playlists_response = get_central_playlists(playlist_source, db_params)
     if playlists_response and playlists_response.get('files'):
+        central_playlists = [playlist.get('label') for playlist in playlists_response.get('files')]
         playlist_path = xbmcvfs.translatePath('special://profile/playlists/music/')
         use_webdav = db_params.get('sourcetype') == 'webdav'
+        local_playlists = xbmcvfs.listdir('special://profile/playlists/music/')[1]
         for playlist in playlists_response.get('files'):
             central_playlist_path = db_scan.convert_from_smb_to_davs(
                 playlist.get('file')) if use_webdav else playlist.get('file')
             local_path = os.path.join(playlist_path, playlist.get('label'))
             xbmcvfs.copy(central_playlist_path, local_path)
+        for local_playlist in local_playlists:
+            if local_playlist not in central_playlists:
+                xbmcvfs.delete(f'special://profile/playlists/music/{local_playlist}')
 
 
 def get_releases_to_align(db_params, music_db_name, sources):
