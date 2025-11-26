@@ -82,16 +82,21 @@ def download_files(paths, folder_name, use_webdav):
         len(paths[0].split('/')) - 1]
     progress.create(addon_name, initial_message)
     total_songs_to_process = len(paths)
-    for (step, file_path) in enumerate(paths, 1):
+    for i in range(len(paths)):
+        step = i + 1
+        file_path = paths[i]
         splitted_path = file_path.split('/')
-        file_name = unquote(splitted_path[len(splitted_path) - 1]) if use_webdav else splitted_path[
-            len(splitted_path) - 1]
+        splitted_path_msg = splitted_path
+        if i < len(paths) - 1:
+            splitted_path_msg = paths[i + 1].split('/')
+        file_name = unquote(splitted_path[len(splitted_path) - 1]) if use_webdav else splitted_path[len(splitted_path) - 1]
+        file_name_msg = unquote(splitted_path_msg[len(splitted_path_msg) - 1]) if use_webdav else splitted_path_msg[len(splitted_path_msg) - 1]
         destination_path = dl_path + file_name
         destination_path = xbmcvfs.makeLegalFilename(destination_path)
         if not xbmcvfs.exists(destination_path):
             xbmcvfs.copy(file_path, destination_path)
         percentuale = (step / total_songs_to_process) * 100
-        progress.update(percent=int(percentuale), message=file_name)
+        progress.update(percent=int(percentuale), message=file_name_msg)
 
     progress.close()
 
