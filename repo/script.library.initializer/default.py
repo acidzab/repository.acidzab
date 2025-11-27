@@ -1,6 +1,4 @@
-import re
 import sqlite3
-from urllib.parse import quote
 
 import db_scan
 import pymysql
@@ -94,7 +92,7 @@ def get_paths_for_init(db_params):
             UNION
             SELECT DISTINCT path.strPath
             FROM path
-                     JOIN source ON path.strPath LIKE CONCAT(source.strMultipath, '%')
+                     JOIN source ON path.strPath LIKE %s
             WHERE source.strMultipath NOT IN
                   (SELECT s2.strMultipath
                    FROM source s2
@@ -110,8 +108,9 @@ def get_paths_for_init(db_params):
                                  cursorclass=pymysql.cursors.DictCursor, connect_timeout=18000)
     with central_db:
         with central_db.cursor() as central_cursor:
-            central_cursor.execute(query)
-            log(central_cursor.mogrify(query))
+            like_operator = '''CONCAT(source.strMultipath, '%')'''
+            central_cursor.execute(query, (like_operator,))
+            log(central_cursor.mogrify(query, (like_operator,)))
             results = central_cursor.fetchall()
 
     results = [result.get('strPath') for result in results]
@@ -119,8 +118,9 @@ def get_paths_for_init(db_params):
     music_db = sqlite3.connect(music_db_path)
     music_db.row_factory = sqlite3.Row
     music_db.set_trace_callback(log)
+    like_operator = '''source.strMultipath || '%' '''
     music_db_cursor = music_db.cursor()
-    music_db_cursor.execute(query)
+    music_db_cursor.execute(query % '?', (like_operator,))
     local_results = music_db_cursor.fetchall()
     music_db_cursor.close()
     music_db.close()
