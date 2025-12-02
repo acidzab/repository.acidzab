@@ -223,23 +223,44 @@ def sync_playlists_to_central_path(playlist_source, db_params):
                 xbmcvfs.delete(f'special://profile/playlists/music/{local_playlist}')
 
 
-def get_releases_to_align(db_params, music_db_name, sources, local_paths):
-    central_albums = get_album_infos(True, db_params, music_db_name, sources, local_paths)
-    local_albums = get_album_infos(False, db_params, music_db_name, sources, local_paths)
-    # Converti in set per confronti più efficienti
-    central_set = {(album['mbid'], tuple(album['path'])) for album in central_albums}
-    local_set = {(album['mbid'], tuple(album['path'])) for album in local_albums}
+def get_releases_to_align(db_params, music_db_name, sources, central_paths):
+    central_albums = get_album_infos(True, db_params, music_db_name, sources, central_paths)
+    local_albums = get_album_infos(False, db_params, music_db_name, sources, central_paths)
+    # Crea dizionari con mbid come chiave e set di path come valore
+    central_dict = {}
+    for album in central_albums:
+        mbid = album.get('mbid')
+        if mbid not in central_dict:
+            central_dict[mbid] = set()
+        central_dict[mbid].update(album.get('path'))
 
-    # Trova differenze
-    to_add_keys = central_set - local_set
-    to_remove_keys = local_set - central_set
+    local_dict = {}
+    for album in local_albums:
+        mbid = album.get('mbid')
+        if mbid not in local_dict:
+            local_dict[mbid] = set()
+        local_dict[mbid].update(album.get('path'))
 
-    # Ricostruisci gli oggetti album
-    albums_to_add = [{'mbid': mbid, 'path': list(path)} for mbid, path in to_add_keys]
-    albums_to_remove = [{'mbid': mbid, 'path': list(path)} for mbid, path in to_remove_keys]
+    # Trova path da aggiungere e rimuovere per ogni mbid
+    albums_to_add = []
+    albums_to_remove = []
+
+    # Path da aggiungere: presenti in central ma non in local
+    for mbid, central_paths in central_dict.items():
+        local_paths = local_dict.get(mbid, set())
+        paths_to_add = central_paths - local_paths
+        if paths_to_add:
+            albums_to_add.append({'mbid': mbid, 'path': list(paths_to_add)})
+
+    # Path da rimuovere: presenti in local ma non in central
+    for mbid, local_paths in local_dict.items():
+        central_paths = central_dict.get(mbid, set())
+        paths_to_remove = local_paths - central_paths
+        if paths_to_remove:
+            albums_to_remove.append({'mbid': mbid, 'path': list(paths_to_remove)})
 
     # Raccogli tutti i paths da scansionare
-    paths_to_scan = [p for album in albums_to_add + albums_to_remove for p in album['path']]
+    paths_to_scan = [p for album in albums_to_add + albums_to_remove for p in album.get('path')]
 
     message = f'Mancano i seguenti album {albums_to_add}'
     log(message)
