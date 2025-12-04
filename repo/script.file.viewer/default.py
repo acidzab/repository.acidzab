@@ -14,6 +14,7 @@ audio_extensions = ['.mp3', '.wav', '.wma', '.aac', '.flac', '.ogg', '.m4a', '.a
                     '.au', '.mpc', '.tta', '.wv', '.opus']
 addon_name = xbmcaddon.Addon().getAddonInfo('name')
 addon_id = xbmcaddon.Addon().getAddonInfo('id')
+sqlite_params_limit = 999
 
 
 def log(msg):
@@ -39,18 +40,21 @@ def get_sources():
     return sources
 
 
-def get_id_albums(path):
+def get_id_albums(paths):
     music_db_path = db_scan.get_music_db_path()
     music_db = sqlite3.connect(music_db_path)
     music_db.set_trace_callback(log)
     music_db_cursor = music_db.cursor()
-    query = '''
-            SELECT DISTINCT vsong.idAlbum
-            FROM songview vsong
-            WHERE vsong.strPath LIKE ?
-            '''
-    like_path = f'{path}%'
-    results = music_db_cursor.execute(query, (like_path,)).fetchall()
+    chunks = [paths[i:i + sqlite_params_limit] for i in range(0, len(paths), sqlite_params_limit)]
+    results = []
+    for chunk in chunks:
+        placeholders = ' OR '.join(['vsong.strPath LIKE ?||\'%\''] * len(chunk))
+        query = '''
+                SELECT DISTINCT vsong.idAlbum
+                FROM songview vsong
+                WHERE %s
+                ''' % placeholders
+        results = music_db_cursor.execute(query, chunk).fetchall()
     music_db_cursor.close()
     music_db.close()
     album_ids = [idAlbum for (idAlbum,) in results]
@@ -65,15 +69,12 @@ def get_ids_to_refresh(paths_from_params, use_webdav):
                 path = db_scan.convert_from_smb_to_davs(path)
             if path not in paths:
                 paths.append(path)
-    id_albums = []
-    for path in paths:
-        id_albums.extend(get_id_albums(path))
+    id_albums = get_id_albums(paths)
     return id_albums
 
 
 def get_scanned_albums_paths(id_albums):
     album_paths = []
-    sqlite_params_limit = 999
     if id_albums:
         music_db_path = db_scan.get_music_db_path()
         music_db = sqlite3.connect(music_db_path)
