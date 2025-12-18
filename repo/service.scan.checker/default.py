@@ -33,11 +33,21 @@ def execute_service():
         if monitor.abortRequested():
             break
         current_scans = get_scans(db_params)
-        if current_scans and current_scans.get('scan') and not xbmc.getCondVisibility('Library.IsScanningMusic'):
+        scan_detected = current_scans and current_scans.get('scan') and not xbmc.getCondVisibility(
+            'Library.IsScanningMusic')
+        align_detected = current_scans and current_scans.get('align') and not xbmc.getCondVisibility(
+            'Library.IsScanningMusic')
+        if scan_detected:
             log('È stata effettuata una scansione, procediamo ad effettuare la scansione')
             if db_params.get('table'):
                 db_scan.reset_scan_status(db_params)
             execute_addon_with_builtin('service.autoexec.label')
+        if align_detected:
+            log('È stato richiesto un allineamento dei dati col db centrale')
+            if db_params.get('table'):
+                db_scan.reset_scan_status(db_params)
+            params = db_scan.encode_string(f'?mode=init', safe_chars='()!')
+            execute_addon_with_builtin('script.scanner.trigger', params)
 
 
 if __name__ == "__main__":

@@ -100,7 +100,8 @@ def reset_scan_status(db_params):
     table = db_params.get('table')
     url = f'{db_params.get('scanserver')}/scans/{table}/status'
     json_for_scan_reset = {
-        "scan": False
+        "scan": False,
+        "align": False
     }
     request = requests.post(url, json=json_for_scan_reset)
     request.raise_for_status()
