@@ -280,8 +280,6 @@ def check_for_scans(db_params):
 
 def init_music_database():
     db_params = db_scan.get_db_params()
-    if db_params.get('table') and check_for_scans(db_params):
-        db_scan.reset_scan_status(db_params)
     db_versions = db_scan.get_latest_kodi_dbs()
     music_db_name = db_versions.get('MyMusic')
     paths_to_scan = sync_paths_to_scan(db_params, music_db_name)

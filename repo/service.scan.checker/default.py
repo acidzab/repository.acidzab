@@ -1,7 +1,10 @@
+import threading
+
 import db_scan
-import requests
+import websocket
 import xbmc
 import xbmcaddon
+
 
 
 def log(msg):
@@ -12,42 +15,94 @@ def execute_addon_with_builtin(addon_id, params=None):
     builtin_cmd = f'RunAddon({addon_id},{params})' if params else f'RunAddon({addon_id})'
     xbmc.executebuiltin(builtin_cmd, True)
 
+class WebSocketMonitor:
+    def __init__(self):
+        self.addon_name = xbmcaddon.Addon().getAddonInfo('name')
+        self.monitor = xbmc.Monitor()
+        self.db_params = db_scan.get_db_params()
 
-def get_scans(db_params):
-    table = db_params.get('table')
-    url = f'{db_params.get('scanserver')}/scans/{table}/status'
-    try:
-        scan_status = requests.get(url)
-        scan_status.raise_for_status()
-    except requests.exceptions.RequestException:
-        return None
-    return scan_status.json()
+        ws_server = self.db_params.get('scanserver')
+        self.ws_url = f"{ws_server}/ws/scans-status"
+
+        self.ws = None
+        self.running = True
+
+    def execute_service(self):
+        log(self.addon_name)
+        log(f"Connessione a: {self.ws_url}")
+
+        # Avvia WebSocket in thread separato
+        ws_thread = threading.Thread(target=self.websocket_handler)
+        ws_thread.daemon = True
+        ws_thread.start()
+
+        # Mantieni il monitor attivo
+        while not self.monitor.waitForAbort(1):
+            if self.monitor.abortRequested():
+                self.running = False
+                if self.ws:
+                    self.ws.close()
+                break
+
+        log("Servizio terminato")
+
+    def websocket_handler(self):
+        """Gestisce la connessione WebSocket con reconnect automatico"""
+        while self.running:
+            try:
+                log("Tentativo connessione WebSocket...")
+                self.ws = websocket.WebSocketApp(
+                    self.ws_url,
+                    on_message=self.on_message,
+                    on_error=self.on_error,
+                    on_close=self.on_close,
+                    on_open=self.on_open
+                )
+                self.ws.run_forever()
+            except Exception as e:
+                log(f"Errore WebSocket: {e}")
+
+            # Reconnect dopo 5 secondi
+            if self.running:
+                log("Ritento la connessione...")
+                xbmc.sleep(5000)
+
+    def on_open(self, ws):
+        log("WebSocket connesso!")
+
+    def on_message(self, ws, message):
+        """Gestisce i messaggi ricevuti dal server"""
+        try:
+            log(f"Messaggio ricevuto: {message}")
+
+            # Verifica che non ci sia già una scansione in corso
+            if xbmc.getCondVisibility('Library.IsScanningMusic'):
+                log("Scansione già in corso, ignoro il comando")
+                return
+
+            if message == "scan":
+                log('È stata effettuata una scansione, procediamo ad effettuare la scansione')
+                execute_addon_with_builtin('service.autoexec.label')
+
+            elif message == "align":
+                log('È stato richiesto un allineamento dei dati col db centrale')
+                params = db_scan.encode_string(f'?mode=init', safe_chars='()!')
+                execute_addon_with_builtin('script.scanner.trigger', params)
+
+        except Exception as e:
+            log(f"Errore elaborazione messaggio: {e}")
+
+    def on_error(self, ws, error):
+        log(f"Errore WebSocket: {error}")
+
+    def on_close(self, ws, close_status_code, close_msg):
+        log(f"WebSocket chiuso")
+
 
 
 def execute_service():
-    addon_name = xbmcaddon.Addon().getAddonInfo('name')
-    log(addon_name)
-    monitor = xbmc.Monitor()
-    db_params = db_scan.get_db_params()
-    while not monitor.waitForAbort(10):
-        if monitor.abortRequested():
-            break
-        current_scans = get_scans(db_params)
-        scan_detected = current_scans and current_scans.get('scan') and not xbmc.getCondVisibility(
-            'Library.IsScanningMusic')
-        align_detected = current_scans and current_scans.get('align') and not xbmc.getCondVisibility(
-            'Library.IsScanningMusic')
-        if scan_detected:
-            log('È stata effettuata una scansione, procediamo ad effettuare la scansione')
-            if db_params.get('table'):
-                db_scan.reset_scan_status(db_params)
-            execute_addon_with_builtin('service.autoexec.label')
-        if align_detected:
-            log('È stato richiesto un allineamento dei dati col db centrale')
-            if db_params.get('table'):
-                db_scan.reset_scan_status(db_params)
-            params = db_scan.encode_string(f'?mode=init', safe_chars='()!')
-            execute_addon_with_builtin('script.scanner.trigger', params)
+    ws_monitor = WebSocketMonitor()
+    ws_monitor.execute_service()
 
 
 if __name__ == "__main__":

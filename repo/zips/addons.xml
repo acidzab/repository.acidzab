@@ -270,7 +270,7 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="service.autoexec.label" name="Library Sync" version="1.4.6" provider-name="AcidZab">
+</addon><addon id="service.autoexec.label" name="Library Sync" version="1.4.7" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.0.1" />
         <import addon="script.module.scansioni" version="1.1.5" />
@@ -288,9 +288,10 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="service.scan.checker" name="Scanner Checker" version="3.2.4" provider-name="AcidZab">
+</addon><addon id="service.scan.checker" name="Scanner Checker" version="3.3.0" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.0.1" />
+        <import addon="script.module.websocket" version="1.6.4" />
         <import addon="script.module.scansioni" version="1.1.5" />
     </requires>
     <extension point="xbmc.python.script" library="default.py">
