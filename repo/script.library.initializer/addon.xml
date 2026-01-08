@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="script.library.initzializer" name="Library Installer" version="1.0.8" provider-name="AcidZab">
+<addon id="script.library.initzializer" name="Library Installer" version="1.0.9" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
-        <import addon="script.module.scansioni" version="1.1.5"/>
+        <import addon="script.module.scansioni" version="1.1.6"/>
     </requires>
     <extension point="xbmc.python.script" library="default.py">
         <provides>executable</provides>
