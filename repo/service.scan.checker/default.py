@@ -55,35 +55,41 @@ def execute_service():
     sse_channel = open_sse_channel()
     monitor = xbmc.Monitor()
 
-    while not monitor.waitForAbort():
-        try:
-            for message in sse_channel.iter_lines(decode_unicode=True):
-                if monitor.abortRequested():
-                    break
-                if not message:
+    try:
+        for line in sse_channel.iter_lines(decode_unicode=True):
+            if monitor.abortRequested():
+                close_sse_channel(sse_channel)
+                break
+            if not line:
+                continue
+            line = line.strip()
+
+            # ignora heartbeat
+            if line.startswith(":"):
+                continue
+
+            if line.startswith('data:'):
+                message = line[5:].strip()
+                log(f"Messaggio ricevuto: {message}")
+
+                # Verifica che non ci sia già una scansione in corso
+                if xbmc.getCondVisibility('Library.IsScanningMusic'):
+                    log("Scansione già in corso, ignoro il comando")
                     continue
-                message = message.strip()
-                if message:
-                    log(f"Messaggio ricevuto: {message}")
 
-                    # Verifica che non ci sia già una scansione in corso
-                    if xbmc.getCondVisibility('Library.IsScanningMusic'):
-                        log("Scansione già in corso, ignoro il comando")
-                        continue
+                if message == "scan":
+                    log('È stata effettuata una scansione, procediamo ad effettuare la scansione')
+                    execute_addon_with_builtin('service.autoexec.label')
 
-                    if message == "scan":
-                        log('È stata effettuata una scansione, procediamo ad effettuare la scansione')
-                        execute_addon_with_builtin('service.autoexec.label')
-
-                    elif message == "align":
-                        log('È stato richiesto un allineamento dei dati col db centrale')
-                        params = db_scan.encode_string(f'?mode=init', safe_chars='()!')
-                        execute_addon_with_builtin('script.scanner.trigger', params)
-                    else:
-                        log(f"Comando sconosciuto: {message}")
-        except Exception as e:
-            log(f"Errore ricezione SSE: {e}")
-            retry_sse_channel(sse_channel)
+                elif message == "align":
+                    log('È stato richiesto un allineamento dei dati col db centrale')
+                    params = db_scan.encode_string(f'?mode=init', safe_chars='()!')
+                    execute_addon_with_builtin('script.scanner.trigger', params)
+                else:
+                    log(f"Comando sconosciuto: {message}")
+    except Exception as e:
+        log(f"Errore ricezione SSE: {e}")
+        retry_sse_channel(sse_channel)
 
     log("Servizio terminato")
 
