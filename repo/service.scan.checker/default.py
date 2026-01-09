@@ -4,6 +4,7 @@ import db_scan
 import requests
 import xbmc
 import xbmcaddon
+from requests import auth
 
 headers = {
     "Accept": "text/event-stream",
@@ -12,6 +13,7 @@ headers = {
 }
 db_params = db_scan.get_db_params()
 scan_server_url = f"{db_params.get('scanserver')}/scans/status"
+sse_auth = auth.HTTPBasicAuth(db_params.get('scanuser'), db_params.get('scanpass'))
 
 
 def log(msg):
@@ -24,7 +26,7 @@ def execute_addon_with_builtin(addon_id, params=None):
 
 
 def open_sse_channel():
-    sse_channel = requests.get(scan_server_url, headers=headers, stream=True, timeout=(5, None))
+    sse_channel = requests.get(scan_server_url, headers=headers, stream=True, timeout=(5, None), auth=sse_auth)
     sse_channel.raise_for_status()
 
     log(f"Servizio avviato, URL: {scan_server_url}")
