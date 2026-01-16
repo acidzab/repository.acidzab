@@ -72,7 +72,6 @@ def execute_service():
 
             if line.startswith('data:'):
                 message = line[5:].strip()
-                log(f"Messaggio ricevuto: {message}")
 
                 # Verifica che non ci sia già una scansione in corso
                 if xbmc.getCondVisibility('Library.IsScanningMusic'):
