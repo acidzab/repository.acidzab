@@ -507,7 +507,7 @@ def get_artists_data(id_artists_set, db_params, call_central, music_db_name):
                                         art.url
                         FROM artist
                                  LEFT JOIN art ON art.media_id = artist.idArtist AND art.media_type = \'artist\''''
-    base_artist_discography_query = f'''SELECT idArtist, strAlbum, strYear, strReleaseGroupMBID FROM discography'''
+    base_artist_discography_query = f'''SELECT * FROM discography'''
     artist_query = base_artist_query
     artist_discography_query = base_artist_discography_query
     if id_artists_set:
@@ -546,8 +546,7 @@ def get_artists_data(id_artists_set, db_params, call_central, music_db_name):
                 discography = discography_by_artist.get(artist_discography_result.get('idArtist'))
                 if not discography:
                     discography = []
-                if artist_discography_result.get('strAlbum') and artist_discography_result.get(
-                        'strYear') and artist_discography_result.get('strReleaseGroupMBID'):
+                if artist_discography_result.get('strAlbum') and artist_discography_result.get('strYear'):
                     discography_info = {
                         'album': artist_discography_result.get('strAlbum'),
                         'year': artist_discography_result.get('strYear'),
@@ -609,8 +608,7 @@ def get_artists_data(id_artists_set, db_params, call_central, music_db_name):
                 discography = discography_by_artist.get(artist_discography_result['idArtist'])
                 if not discography:
                     discography = []
-                if artist_discography_result['strAlbum'] and artist_discography_result['strYear'] and \
-                        artist_discography_result['strReleaseGroupMBID']:
+                if artist_discography_result['strAlbum'] and artist_discography_result['strYear']:
                     discography_info = {
                         'album': artist_discography_result['strAlbum'],
                         'year': artist_discography_result['strYear'],
