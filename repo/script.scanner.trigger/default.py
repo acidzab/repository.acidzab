@@ -507,7 +507,7 @@ def get_artists_data(id_artists_set, db_params, call_central, music_db_name):
                                         art.url
                         FROM artist
                                  LEFT JOIN art ON art.media_id = artist.idArtist AND art.media_type = \'artist\''''
-    base_artist_discography_query = f'''SELECT idArtist, strAlbum, strYear FROM discography'''
+    base_artist_discography_query = f'''SELECT idArtist, strAlbum, strYear, strReleaseGroupMBID FROM discography'''
     artist_query = base_artist_query
     artist_discography_query = base_artist_discography_query
     if id_artists_set:
@@ -546,10 +546,12 @@ def get_artists_data(id_artists_set, db_params, call_central, music_db_name):
                 discography = discography_by_artist.get(artist_discography_result.get('idArtist'))
                 if not discography:
                     discography = []
-                if artist_discography_result.get('strAlbum') and artist_discography_result.get('strYear'):
+                if artist_discography_result.get('strAlbum') and artist_discography_result.get(
+                        'strYear') and artist_discography_result.get('strReleaseGroupMBID'):
                     discography_info = {
                         'album': artist_discography_result.get('strAlbum'),
-                        'year': artist_discography_result.get('strYear')
+                        'year': artist_discography_result.get('strYear'),
+                        'mbid': artist_discography_result.get('strReleaseGroupMBID')
                     }
                     if discography_info not in discography:
                         discography.append(discography_info)
@@ -607,10 +609,12 @@ def get_artists_data(id_artists_set, db_params, call_central, music_db_name):
                 discography = discography_by_artist.get(artist_discography_result['idArtist'])
                 if not discography:
                     discography = []
-                if artist_discography_result['strAlbum'] and artist_discography_result['strYear']:
+                if artist_discography_result['strAlbum'] and artist_discography_result['strYear'] and \
+                        artist_discography_result['strReleaseGroupMBID']:
                     discography_info = {
                         'album': artist_discography_result['strAlbum'],
-                        'year': artist_discography_result['strYear']
+                        'year': artist_discography_result['strYear'],
+                        'mbid': artist_discography_result['strReleaseGroupMBID']
                     }
                     if discography_info not in discography:
                         discography.append(discography_info)
@@ -740,7 +744,8 @@ def update_artist_records(central_artists, local_artists, artists_to_update):
         if central_artist.get('discography'):
             artists_to_reset.append((local_artist.get('id'),))
             for release in central_artist.get('discography'):
-                release_to_set = (local_artist.get('id'), release.get('album'), release.get('year'), '')
+                release_to_set = (local_artist.get('id'), release.get('album'), release.get('year'),
+                                  release.get('mbid'))
                 if release_to_set not in releases_to_set:
                     releases_to_set.append(release_to_set)
         elif local_artist.get('discography') and not central_artist.get('discography'):
