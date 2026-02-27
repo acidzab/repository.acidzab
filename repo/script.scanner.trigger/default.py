@@ -833,20 +833,6 @@ def force_path_rescan(paths_to_scan):
         music_db.close()
 
 
-def replace_local_art_with_artworker(id_album, db_params, central_art):
-    artwork = db_scan.get_manual_arts_from_artworker(db_params, id_album)
-    if artwork and central_art and artwork.get('media_id') == id_album and artwork.get('manual_artwork'):
-        for art_field in central_art:
-            art_url = central_art.get(art_field)
-            if art_url.startswith('smb'):
-                artworker_id = artwork.get('id')
-                artworker_media_id = artwork.get('media_id')
-                artworker_media_type = artwork.get('media_type')
-                artworker_host = db_params.get('artworkerbasehost')
-                artworker_to_set = f'{artworker_host}/media/{artworker_media_id}/{artworker_media_type}/arts/{artworker_id}'
-                central_art[art_field] = artworker_to_set
-
-
 def align_media_to_central_db(paths, local_paths, exec_mode, db_params):
     progress = xbmcgui.DialogProgressBG()
     media_by_id = get_media_details_from_directory(paths, local_paths, db_params)
@@ -860,8 +846,6 @@ def align_media_to_central_db(paths, local_paths, exec_mode, db_params):
     arts_to_insert = set()
     arts_to_update = set()
     arts_to_remove = set()
-    # qui raccolgo gli id album che hanno come artwork un file e che devo recepire tramite artworker
-    id_albums_with_local_art = []
 
     for media_id in media_by_id:
         # id per album e brani
@@ -921,20 +905,9 @@ def align_media_to_central_db(paths, local_paths, exec_mode, db_params):
     if media_by_id:
         for media_id in media_by_id:
             media = media_by_id.get(media_id)
-            central_album_art = central_album_arts.get((media.get('albumid'), media.get('musicbrainzalbumid')))
-            if central_album_art:
-                for art_field in central_album_art.keys():
-                    art_url = central_album_art.get(art_field)
-                    if art_url.startswith('smb'):
-                        id_albums_with_local_art.append(media.get('albumid'))
-
-        for media_id in media_by_id:
-            media = media_by_id.get(media_id)
             if media and media.get('localalbumid'):
                 central_album_art = central_album_arts.get((media.get('albumid'), media.get('musicbrainzalbumid')))
                 local_album_art = local_album_arts.get((media.get('localalbumid'), media.get('musicbrainzalbumid')))
-                if media.get('albumid') in id_albums_with_local_art:
-                    replace_local_art_with_artworker(media.get('albumid'), db_params, central_album_art)
                 _prepare_art_tuples_optimized(arts_to_insert, arts_to_remove, arts_to_update, central_album_art,
                                               local_album_art,
                                               media.get('localalbumid'), 'album')
@@ -1031,7 +1004,6 @@ def process_media_art_with_batching(db_params, music_db_name, central_album_arts
     all_arts_to_insert = set()
     all_arts_to_remove = set()
     all_arts_to_update = set()
-    id_albums_with_local_art = set()
 
     # Ottieni dati
     albums = get_all_medias('album', db_params, music_db_name)
@@ -1042,10 +1014,7 @@ def process_media_art_with_batching(db_params, music_db_name, central_album_arts
         batch = albums[i:i + batch_size]
         log(f"Elaborazione batch album {i // batch_size + 1}/{(len(albums) - 1) // batch_size + 1}")
 
-        batch_results = _process_album_batch(
-            batch, central_album_arts, local_album_arts,
-            id_albums_with_local_art, db_params
-        )
+        batch_results = _process_album_batch(batch, central_album_arts, local_album_arts)
 
         log(batch_results)
 
@@ -1083,7 +1052,7 @@ def process_media_art_with_batching(db_params, music_db_name, central_album_arts
     return result
 
 
-def _process_album_batch(album_batch, central_album_arts, local_album_arts, id_albums_with_local_art, db_params):
+def _process_album_batch(album_batch, central_album_arts, local_album_arts):
     """Elabora un batch di album"""
     arts_to_insert = set()
     arts_to_remove = set()
@@ -1097,20 +1066,10 @@ def _process_album_batch(album_batch, central_album_arts, local_album_arts, id_a
         central_key = (album_id, album_mbid)
         central_album_art = central_album_arts.get(central_key)
 
-        # Identifica album con artwork locale
-        if central_album_art:
-            for art_url in central_album_art.values():
-                if art_url and art_url.startswith('smb'):
-                    id_albums_with_local_art.add(album_id)
-                    break
-
         # Elabora se esiste corrispondenza locale
         if local_id:
             local_key = (local_id, album_mbid)
             local_album_art = local_album_arts.get(local_key)
-
-            if album_id in id_albums_with_local_art:
-                replace_local_art_with_artworker(album_id, db_params, central_album_art)
 
             _prepare_art_tuples_optimized(
                 arts_to_insert, arts_to_remove, arts_to_update,

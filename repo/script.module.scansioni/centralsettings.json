@@ -12,6 +12,8 @@
   "sourcetype": "webdav/samba",
   "downloadfolder": "",
   "scanserver": "",
+  "scanuser": "",
+  "scanpass": "",
   "sambasource": "",
   "webdavsource": "",
   "centralplaylist": ""

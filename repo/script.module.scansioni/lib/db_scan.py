@@ -111,14 +111,6 @@ def execute_from_central_kodi_webserver(db_params, payload):
     return response.json()
 
 
-def get_manual_arts_from_artworker(db_params, id_album):
-    artworker_host = db_params.get('artworker')
-    artworker_art_endpoint = f'{artworker_host}/albums/{id_album}/manual-arts'
-    response = requests.get(artworker_art_endpoint)
-    response.raise_for_status()
-    return response.json()
-
-
 def get_db_params():
     central_settings_path = xbmcvfs.translatePath('special://userdata/centralsettings.json')
     with xbmcvfs.File(central_settings_path) as f:
