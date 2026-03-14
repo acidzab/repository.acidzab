@@ -1,7 +1,6 @@
 import json
 import os.path
 import sqlite3
-import time
 from datetime import datetime, timedelta
 
 import db_scan
@@ -37,15 +36,6 @@ class ScanMonitor(xbmc.Monitor):
 
 def log(msg):
     xbmc.log(str(msg), xbmc.LOGDEBUG)
-
-
-# Workaround per il bug di datetime.strptime in Kodi
-def safe_strptime(date_string, format_string):
-    try:
-        return datetime.strptime(date_string, format_string)
-    except (TypeError, AttributeError):
-        # Fallback usando time.strptime quando datetime.strptime è corrotto
-        return datetime.fromtimestamp(time.mktime(time.strptime(date_string, format_string)))
 
 
 def get_sources():
@@ -309,7 +299,7 @@ def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params, sources,
                       AND %s
             GROUP BY songview.strPath
             ORDER BY album.dateAdded'''
-    from_date_str_local = safe_strptime(dt_last_scanned_local, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
+    from_date_str_local = datetime.strptime(dt_last_scanned_local, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
     to_date = datetime.now() + timedelta(days=1)
     to_date_str = to_date.strftime('%Y-%m-%d')
     central_results = []
