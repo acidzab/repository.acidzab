@@ -100,8 +100,7 @@ def get_album_infos(use_central, db_params, music_db_name):
         music_db_cursor.close()
         music_db.close()
     if query_results:
-        album_ids = [result['idAlbum'] for result in query_results]
-        paths_by_id_album = get_album_path_by_id(album_ids, use_central, db_params, music_db_name)
+        paths_by_id_album = get_album_path_by_id(list(), use_central, db_params, music_db_name, True)
         for result in query_results:
             album_info = {'mbid': result['strMusicBrainzAlbumID'], 'path': paths_by_id_album.get(result['idAlbum'])}
             album_infos.append(album_info)
@@ -200,7 +199,7 @@ def init_music_database():
         execute_addon_with_builtin('service.scan.checker')
 
 
-def get_album_path_by_id(id_albums, use_central, db_params, music_db_name):
+def get_album_path_by_id(id_albums, use_central, db_params, music_db_name, fetch_all_albums):
     use_webdav = db_params.get('sourcetype') == 'webdav'
     music_db_path = db_scan.get_music_db_path()
     query = '''
@@ -214,6 +213,7 @@ def get_album_path_by_id(id_albums, use_central, db_params, music_db_name):
                    FROM song AS song2
                    WHERE idPath = song.idPath) = 1
             ORDER BY strPath ASC'''
+    id_albums_subquery = 'SELECT idAlbum FROM album'
     query_results = []
     if use_central:
         host = db_params.get('host')
@@ -223,22 +223,31 @@ def get_album_path_by_id(id_albums, use_central, db_params, music_db_name):
                                      cursorclass=pymysql.cursors.DictCursor, connect_timeout=18000)
         with central_db:
             with central_db.cursor() as central_cursor:
-                chunks = [id_albums[i:i + 1000] for i in range(0, len(id_albums), 1000)]
-                for chunk in chunks:
-                    placeholders = ','.join(['%s'] * len(chunk))
-                    central_cursor.execute(query % placeholders, chunk)
-                    log(central_cursor.mogrify(query % placeholders, chunk))
+                if fetch_all_albums:
+                    central_cursor.execute(query % id_albums_subquery)
+                    log(central_cursor.mogrify(query % id_albums_subquery))
                     query_results.extend(central_cursor.fetchall())
+                elif id_albums:
+                    chunks = [id_albums[i:i + 1000] for i in range(0, len(id_albums), 1000)]
+                    for chunk in chunks:
+                        placeholders = ','.join(['%s'] * len(chunk))
+                        central_cursor.execute(query % placeholders, chunk)
+                        log(central_cursor.mogrify(query % placeholders, chunk))
+                        query_results.extend(central_cursor.fetchall())
     else:
         music_db = sqlite3.connect(music_db_path)
         music_db.row_factory = sqlite3.Row
         music_db.set_trace_callback(log)
         music_db_cursor = music_db.cursor()
-        chunks = [id_albums[i:i + 999] for i in range(0, len(id_albums), 999)]
-        for chunk in chunks:
-            placeholders = ','.join(['?'] * len(chunk))
-            music_db_cursor.execute(query % placeholders, chunk)
+        if fetch_all_albums:
+            music_db_cursor.execute(query % id_albums_subquery)
             query_results.extend(music_db_cursor.fetchall())
+        elif id_albums:
+            chunks = [id_albums[i:i + 999] for i in range(0, len(id_albums), 999)]
+            for chunk in chunks:
+                placeholders = ','.join(['?'] * len(chunk))
+                music_db_cursor.execute(query % placeholders, chunk)
+                query_results.extend(music_db_cursor.fetchall())
         music_db_cursor.close()
         music_db.close()
     album_path_by_id = {}
@@ -304,7 +313,7 @@ def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params):
     central_dt_added_by_mbid = {}
     if central_results:
         album_ids = [result.get('idAlbum') for result in central_results]
-        paths_by_id_album = get_album_path_by_id(album_ids, True, db_params, music_db_name)
+        paths_by_id_album = get_album_path_by_id(album_ids, True, db_params, music_db_name, False)
         central_dt_added_by_mbid = {
             result.get('strMusicBrainzAlbumID'): {'paths': paths_by_id_album.get(result.get('idAlbum')),
                                                   'dateAdded': result.get('dateAdded')} for result in central_results
@@ -323,7 +332,7 @@ def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params):
     local_dt_added_by_mbid = {}
     if local_results:
         album_ids = [result['idAlbum'] for result in local_results]
-        paths_by_id_album = get_album_path_by_id(album_ids, False, db_params, music_db_name)
+        paths_by_id_album = get_album_path_by_id(album_ids, False, db_params, music_db_name, False)
         local_dt_added_by_mbid = {
             result['strMusicBrainzAlbumID']: {'paths': paths_by_id_album.get(result['idAlbum']),
                                               'dateAdded': result['dateAdded']} for result in local_results

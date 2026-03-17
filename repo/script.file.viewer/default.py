@@ -73,28 +73,28 @@ def get_ids_to_refresh(paths_from_params, use_webdav):
     return id_albums
 
 
-def get_scanned_albums_paths(id_albums):
-    album_paths = []
-    if id_albums:
-        music_db_path = db_scan.get_music_db_path()
-        music_db = sqlite3.connect(music_db_path)
-        music_db.set_trace_callback(log)
-        music_db_cursor = music_db.cursor()
+def get_scanned_albums_paths(id_albums, exec_mode):
+    results = []
+    query = '''
+            SELECT DISTINCT path.strPath
+            FROM song
+                     JOIN path path ON song.idPath = path.idPath
+            WHERE song.idAlbum IN (%s)'''
+    music_db_path = db_scan.get_music_db_path()
+    music_db = sqlite3.connect(music_db_path)
+    music_db.set_trace_callback(log)
+    music_db_cursor = music_db.cursor()
+    if exec_mode == 'init':
+        id_album_subquery = 'SELECT idAlbum FROM album'
+        results.extend(music_db_cursor.execute(query % id_album_subquery).fetchall())
+    elif id_albums:
         chunks = [id_albums[i:i + sqlite_params_limit] for i in range(0, len(id_albums), sqlite_params_limit)]
-        results = []
         for chunk in chunks:
             placeholders = ','.join(['?'] * len(chunk))
-            query = '''
-            SELECT DISTINCT path.strPath 
-            FROM song 
-            JOIN path path ON song.idPath = path.idPath 
-            WHERE song.idAlbum IN (%s)
-            ''' % placeholders
-            results.extend(music_db_cursor.execute(query, chunk).fetchall())
-        music_db_cursor.close()
-        music_db.close()
-        album_paths = [strPath for (strPath,) in results if strPath is not None]
-
+            results.extend(music_db_cursor.execute(query % placeholders, chunk).fetchall())
+    music_db_cursor.close()
+    music_db.close()
+    album_paths = [strPath for (strPath,) in results if strPath is not None]
     return album_paths
 
 
@@ -190,7 +190,7 @@ def clean_texture_path():
     texture_db.close()
 
 
-def convert_to_thumb_view(paths_to_convert, use_webdav, id_albums):
+def convert_to_thumb_view(paths_to_convert, use_webdav, id_albums, exec_mode):
     if paths_to_convert:
         progress = xbmcgui.DialogProgressBG()
         textures = get_textures()
@@ -202,7 +202,7 @@ def convert_to_thumb_view(paths_to_convert, use_webdav, id_albums):
             progress.update(message=directory, percent=int(percentuale))
         progress.close()
         progress.create(addon_name, message='Precarico le miniature sui file')
-        paths_to_cache = get_thumbs_to_cache(id_albums, textures, use_webdav)
+        paths_to_cache = get_thumbs_to_cache(id_albums, textures, use_webdav, exec_mode)
         cache_thumbs(paths_to_cache, progress)
         clean_texture_path()
         progress.close()
@@ -223,35 +223,42 @@ def get_kodi_image_path(file_path):
 
 
 # ottengo le potenziali texture usate come thumbnail quando si consultano le cartelle dalla vista per sorgenti (File su Kodi)
-def get_thumbs_to_cache(id_albums, textures, use_webdav):
+def get_thumbs_to_cache(id_albums, textures, use_webdav, exec_mode):
     thumbs_to_cache = {}
     translated_path = db_scan.get_music_db_path()
     music_db = sqlite3.connect(translated_path)
     music_db.create_function('decode', 1, decode_url, deterministic=True)
     music_db.set_trace_callback(log)
     music_db_cursor = music_db.cursor()
-    chunks = [id_albums[i:i + 999] for i in range(0, len(id_albums), 999)]
-    for chunk in chunks:
-        placeholders = ','.join(['?'] * len(chunk))
-        query = '''
+    query = '''
             WITH decoded AS
-              (SELECT strPath,
-                      strFilename,
-                      decode(strFilename) AS decoded_filename,
-                      idSong,
-                      idAlbum
-               FROM songview
-               WHERE idAlbum IN (%s)),
+                     (SELECT strPath,
+                             strFilename,
+                             decode(strFilename) AS decoded_filename,
+                             idSong,
+                             idAlbum
+                      FROM songview
+                      WHERE idAlbum IN (%s)),
                  ranked AS
-              (SELECT strPath || strFilename AS full_path,
-                      ROW_NUMBER() OVER (PARTITION BY strPath
+                     (SELECT strPath || strFilename AS full_path,
+                             ROW_NUMBER()              OVER (PARTITION BY strPath
                                          ORDER BY decoded_filename COLLATE NOCASE, idSong) AS row_num
-               FROM decoded)
+                      FROM decoded)
             SELECT full_path
             FROM ranked
-            WHERE row_num = 1''' % placeholders
-        first_tracks_res = music_db_cursor.execute(query, chunk)
-        results = first_tracks_res.fetchall()
+            WHERE row_num = 1'''
+    results = []
+    if exec_mode == 'init':
+        id_albums_subquery = 'SELECT idAlbum FROM album'
+        results.extend(music_db_cursor.execute(query % id_albums_subquery).fetchall())
+    elif id_albums:
+        chunks = [id_albums[i:i + 999] for i in range(0, len(id_albums), 999)]
+        for chunk in chunks:
+            placeholders = ','.join(['?'] * len(chunk))
+            results.extend(music_db_cursor.execute(query % placeholders, chunk).fetchall())
+    music_db_cursor.close()
+    music_db.close()
+    if results:
         for (full_path,) in results:
             encoded_image = get_kodi_image_path(full_path)
             if encoded_image not in textures:
@@ -261,8 +268,6 @@ def get_thumbs_to_cache(id_albums, textures, use_webdav):
                 message = unquote(message) if use_webdav else message
                 thumbs_to_cache[encoded_image] = (message, f'{full_path.rsplit('/', 1)[0]}/')
 
-    music_db_cursor.close()
-    music_db.close()
     return thumbs_to_cache
 
 
@@ -325,19 +330,20 @@ def switch_to_thumb_view_for_files():
     use_webdav = db_params.get('sourcetype') == 'webdav'
     sources = get_sources()
     sources_paths = [source.get('file') for source in sources]
+    id_albums = []
     ## exec mode non valorizzato -> lancio secco dagli addon
-    if not exec_mode or exec_mode == 'init':
-        id_albums = get_ids_to_refresh(sources_paths, use_webdav)
-    else:
+    if exec_mode and exec_mode != 'init':
         id_albums = get_ids_to_refresh(paths_from_params, use_webdav)
-    album_paths = get_scanned_albums_paths(id_albums)
+    elif not exec_mode:
+        exec_mode = 'init'
+    album_paths = get_scanned_albums_paths(id_albums, exec_mode)
     albums_by_source = {}
     for source_path in sources_paths:
         source_into_album = [album_path for album_path in album_paths if source_path in album_path]
         if source_into_album:
             albums_by_source[source_path] = source_into_album
     paths_to_convert = get_paths_to_convert(albums_by_source)
-    convert_to_thumb_view(paths_to_convert, use_webdav, id_albums)
+    convert_to_thumb_view(paths_to_convert, use_webdav, id_albums, exec_mode)
     convert_playlists_to_info_media_view()
     builtin_cmd = f'NotifyAll({addon_id}, OnViewSwitched)'
     xbmc.executebuiltin(builtin_cmd)
