@@ -317,7 +317,7 @@ def get_album_path_by_id(id_albums, use_central, db_params, music_db_name, fetch
                 if common_prefix and '/' in common_prefix:
                     path_not_main_source = common_prefix != db_params.get(
                         'webdavsource') if use_webdav else common_prefix != db_params.get('sambasource')
-                    if path_not_main_source and common_prefix not in sources and common_prefix not in central_paths:
+                    if path_not_main_source and common_prefix not in sources and common_prefix in central_paths:
                         last_slash = common_prefix.rfind('/')
                         common_prefix = common_prefix[:last_slash + 1]
                         paths_to_update.append(common_prefix)
