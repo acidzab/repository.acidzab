@@ -55,6 +55,23 @@ def execute_addon_with_builtin(addon_id, params=None):
     xbmc.executebuiltin(builtin_cmd, True)
 
 
+def get_central_paths(db_params, music_db_name):
+    query = 'SELECT strPath FROM path'
+    query_results = []
+    host = db_params.get('host')
+    username = db_params.get('user')
+    password = db_params.get('pass')
+    central_db = pymysql.connect(host=host, user=username, password=password, database=music_db_name, port=3306,
+                                 cursorclass=pymysql.cursors.DictCursor, connect_timeout=18000)
+    with central_db:
+        with central_db.cursor() as central_cursor:
+            central_cursor.execute(query)
+            log(central_cursor.mogrify(query))
+            query_results.extend(central_cursor.fetchall())
+    paths = {result['strPath'] for result in query_results}
+    return paths
+
+
 def get_properties(call_central, db_params):
     json_payload = {
         "id": "1",
@@ -73,7 +90,7 @@ def get_properties(call_central, db_params):
     return props
 
 
-def get_album_infos(use_central, db_params, music_db_name, sources):
+def get_album_infos(use_central, db_params, music_db_name, sources, central_paths):
     music_db_path = db_scan.get_music_db_path()
     album_infos = []
     query = '''SELECT idAlbum, strMusicBrainzAlbumID
@@ -100,7 +117,8 @@ def get_album_infos(use_central, db_params, music_db_name, sources):
         music_db_cursor.close()
         music_db.close()
     if query_results:
-        paths_by_id_album = get_album_path_by_id(list(), use_central, db_params, music_db_name, True, sources)
+        paths_by_id_album = get_album_path_by_id(list(), use_central, db_params, music_db_name, True,
+                                                 sources, central_paths)
         for result in query_results:
             album_info = {'mbid': result['strMusicBrainzAlbumID'], 'path': paths_by_id_album.get(result['idAlbum'])}
             album_infos.append(album_info)
@@ -124,9 +142,9 @@ def sync_playlists_to_central_path(playlist_source, db_params):
                 xbmcvfs.delete(f'special://profile/playlists/music/{local_playlist}')
 
 
-def get_releases_to_align(db_params, music_db_name, sources):
-    central_albums = get_album_infos(True, db_params, music_db_name, sources)
-    local_albums = get_album_infos(False, db_params, music_db_name, sources)
+def get_releases_to_align(db_params, music_db_name, sources, central_paths):
+    central_albums = get_album_infos(True, db_params, music_db_name, sources, central_paths)
+    local_albums = get_album_infos(False, db_params, music_db_name, sources, central_paths)
     # Crea dizionari con mbid come chiave e set di path come valore
     central_dict = {}
     for album in central_albums:
@@ -197,7 +215,7 @@ def get_sources():
     response = json.loads(get_sources_req)
     if response.get('result'):
         sources = response.get('result').get('sources')
-    return [source.get('file') for source in sources]
+    return {source.get('file') for source in sources}
 
 
 def init_music_database():
@@ -218,7 +236,7 @@ def init_music_database():
         execute_addon_with_builtin('service.scan.checker')
 
 
-def get_album_path_by_id(id_albums, use_central, db_params, music_db_name, fetch_all_albums, sources):
+def get_album_path_by_id(id_albums, use_central, db_params, music_db_name, fetch_all_albums, sources, central_paths):
     use_webdav = db_params.get('sourcetype') == 'webdav'
     music_db_path = db_scan.get_music_db_path()
     query = '''
@@ -299,7 +317,7 @@ def get_album_path_by_id(id_albums, use_central, db_params, music_db_name, fetch
                 if common_prefix and '/' in common_prefix:
                     path_not_main_source = common_prefix != db_params.get(
                         'webdavsource') if use_webdav else common_prefix != db_params.get('sambasource')
-                    if path_not_main_source and common_prefix not in sources:
+                    if path_not_main_source and common_prefix not in sources and common_prefix not in central_paths:
                         last_slash = common_prefix.rfind('/')
                         common_prefix = common_prefix[:last_slash + 1]
                         paths_to_update.append(common_prefix)
@@ -310,7 +328,7 @@ def get_album_path_by_id(id_albums, use_central, db_params, music_db_name, fetch
     return album_path_by_id
 
 
-def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params, sources):
+def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params, sources, central_paths):
     query = '''
             SELECT dateAdded,
                    idAlbum,
@@ -338,7 +356,8 @@ def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params, sources)
     central_dt_added_by_mbid = {}
     if central_results:
         album_ids = [result.get('idAlbum') for result in central_results]
-        paths_by_id_album = get_album_path_by_id(album_ids, True, db_params, music_db_name, False, sources)
+        paths_by_id_album = get_album_path_by_id(album_ids, True, db_params, music_db_name, False,
+                                                 sources, central_paths)
         central_dt_added_by_mbid = {
             result.get('strMusicBrainzAlbumID'): {'paths': paths_by_id_album.get(result.get('idAlbum')),
                                                   'dateAdded': result.get('dateAdded')} for result in central_results
@@ -357,7 +376,8 @@ def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params, sources)
     local_dt_added_by_mbid = {}
     if local_results:
         album_ids = [result['idAlbum'] for result in local_results]
-        paths_by_id_album = get_album_path_by_id(album_ids, False, db_params, music_db_name, False, sources)
+        paths_by_id_album = get_album_path_by_id(album_ids, False, db_params, music_db_name, False,
+                                                 sources, central_paths)
         local_dt_added_by_mbid = {
             result['strMusicBrainzAlbumID']: {'paths': paths_by_id_album.get(result['idAlbum']),
                                               'dateAdded': result['dateAdded']} for result in local_results
@@ -381,8 +401,9 @@ def sync_paths_to_scan(db_params, music_db_name):
         playlist_source = f'{db_params.get("sambasource")}/playlists/music/'
         sync_playlists_to_central_path(playlist_source, db_params)
     sources = get_sources()
-    albums_to_sync = get_albums_to_sync(local_last_scanned, music_db_name, db_params, sources)
-    albums_to_align = get_releases_to_align(db_params, music_db_name, sources)
+    central_paths = get_central_paths(db_params, music_db_name)
+    albums_to_sync = get_albums_to_sync(local_last_scanned, music_db_name, db_params, sources, central_paths)
+    albums_to_align = get_releases_to_align(db_params, music_db_name, sources, central_paths)
     paths_to_scan = set()
     paths_to_scan.update(albums_to_sync)
     paths_to_scan.update(albums_to_align)
