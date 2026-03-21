@@ -182,7 +182,7 @@ def check_for_scans(db_params):
     return scan_results and scan_results.get('scan')
 
 
-def get_sources():
+def get_sources(use_webdav):
     json_payload = {
         "jsonrpc": "2.0",
         "method": "AudioLibrary.GetSources",
@@ -198,7 +198,8 @@ def get_sources():
     response = json.loads(get_sources_req)
     if response.get('result'):
         sources = response.get('result').get('sources')
-    return {source.get('file') for source in sources}
+    return {db_scan.convert_from_davs_to_smb(source.get('file')) if use_webdav else source.get('file') for source in
+            sources}
 
 
 def init_music_database():
@@ -381,7 +382,8 @@ def sync_paths_to_scan(db_params, music_db_name):
     if central_playlists_enabled:
         playlist_source = f'{db_params.get("sambasource")}/playlists/music/'
         sync_playlists_to_central_path(playlist_source, db_params)
-    sources = get_sources()
+    use_webdav = db_params.get('sourcetype') == 'webdav'
+    sources = get_sources(use_webdav)
     albums_to_sync = get_albums_to_sync(local_last_scanned, music_db_name, db_params, sources)
     albums_to_align = get_releases_to_align(db_params, music_db_name, sources)
     paths_to_scan = set()
