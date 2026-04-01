@@ -487,24 +487,23 @@ def get_artists_data(id_artists_set, db_params, call_central, music_db_name):
     artist_results = []
     artist_discography_results = []
     base_artist_query = '''
-                        SELECT DISTINCT idArtist,
-                                        strArtist,
-                                        strMusicBrainzArtistID,
-                                        strType,
-                                        strGender,
-                                        strDisambiguation,
-                                        strBorn,
-                                        strFormed,
-                                        strGenres,
-                                        strMoods,
-                                        strStyles,
-                                        strInstruments,
-                                        strBiography,
-                                        strDied,
-                                        strDisbanded,
-                                        strYearsActive,
-                                        strImage,
-                                        art.url
+                        SELECT idArtist,
+                               strArtist,
+                               strMusicBrainzArtistID,
+                               strType,
+                               strGender,
+                               strDisambiguation,
+                               strBorn,
+                               strFormed,
+                               strGenres,
+                               strMoods,
+                               strStyles,
+                               strInstruments,
+                               strBiography,
+                               strDied,
+                               strDisbanded,
+                               strYearsActive,
+                               art.url
                         FROM artist
                                  LEFT JOIN art ON art.media_id = artist.idArtist AND art.media_type = \'artist\''''
     base_artist_discography_query = f'''SELECT * FROM discography'''
@@ -574,7 +573,6 @@ def get_artists_data(id_artists_set, db_params, call_central, music_db_name):
                     'formed': artist.get('strFormed'),
                     'died': artist.get('strDied'),
                     'disbanded': artist.get('strDisbanded'),
-                    'images': artist.get('strImage'),
                     'art_url': artist.get('url')
                 }
                 artist_discography = discography_by_artist.get(artist.get('idArtist'))
@@ -636,7 +634,6 @@ def get_artists_data(id_artists_set, db_params, call_central, music_db_name):
                     'formed': artist_result['strFormed'],
                     'died': artist_result['strDied'],
                     'disbanded': artist_result['strDisbanded'],
-                    'images': artist_result['strImage'],
                     'art_url': artist_result['url']
                 }
                 artist_discography = discography_by_artist.get(artist_result['idArtist'])
@@ -723,7 +720,7 @@ def update_artist_records(central_artists, local_artists, artists_to_update):
                 artist_to_set.get('died'),
                 artist_to_set.get('disbanded'),
                 artist_to_set.get('years_active'),
-                artist_to_set.get('images'),
+                '',
                 local_artist.get('id')
             )
             if artist_values_to_set not in artists_value_to_set:
