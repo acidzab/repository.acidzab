@@ -37,50 +37,26 @@ def execute_addon_with_builtin(addon_id, params=None):
 
 def get_paths_to_scan(paths):
     """
-    Raggruppa i path per prefisso comune.
+    Restituisce i path "radice" da scansionare:
+    - Se un path ha figli censiti, viene incluso come radice (copre tutto il sottoalbero).
+    - Se un path non ha un padre censito, viene incluso direttamente.
+    - I path figli di una radice già inclusa vengono scartati.
 
     Args:
-        paths: lista di path da raggruppare
+        paths: lista di path da analizzare
 
     Returns:
-        dict: mappa {path_comune: [lista_sottopath]}
+        list: path da passare a Kodi per la scansione
     """
-    path_groups = {}
-    processed = set()
-
-    for path in paths:
-        if path in processed:
+    sorted_paths = sorted(paths)
+    roots = []
+    for path in sorted_paths:
+        # Se questo path è già coperto da una radice trovata, saltalo
+        if any(path.startswith(root) and path != root for root in roots):
             continue
+        roots.append(path)
 
-        # Trova tutti i path che condividono lo stesso prefisso
-        related_paths = [p for p in paths if p.startswith(path) or path.startswith(p)]
-
-        if not related_paths:
-            continue
-
-        # Trova il prefisso comune tra i path correlati
-        common_prefix = related_paths[0]
-        min_length = min(len(p) for p in related_paths)
-
-        for i in range(min_length):
-            char = related_paths[0][i]
-            if all(p[i] == char for p in related_paths):
-                common_prefix = related_paths[0][:i + 1]
-            else:
-                break
-
-        # Tronca all'ultimo slash
-        if common_prefix and '/' in common_prefix:
-            last_slash = common_prefix.rfind('/')
-            common_prefix = common_prefix[:last_slash + 1]
-
-        # Aggiungi al gruppo solo se ci sono sottopath
-        subpaths = [p for p in related_paths if p != common_prefix]
-        if subpaths or len(related_paths) == 1:
-            path_groups[common_prefix] = related_paths
-            processed.update(related_paths)
-
-    return path_groups
+    return roots
 
 
 def get_paths_for_init(db_params):
@@ -92,7 +68,7 @@ def get_paths_for_init(db_params):
             UNION
             SELECT DISTINCT path.strPath
             FROM path
-                     JOIN source ON path.strPath LIKE %s
+                     JOIN source ON path.strPath LIKE CONCAT(source.strMultipath, '%')
             WHERE source.strMultipath NOT IN
                   (SELECT s2.strMultipath
                    FROM source s2
@@ -108,30 +84,27 @@ def get_paths_for_init(db_params):
                                  cursorclass=pymysql.cursors.DictCursor, connect_timeout=18000)
     with central_db:
         with central_db.cursor() as central_cursor:
-            like_operator = '''CONCAT(source.strMultipath, '%')'''
-            central_cursor.execute(query, (like_operator,))
-            log(central_cursor.mogrify(query, (like_operator,)))
+            central_cursor.execute(query)
+            log(central_cursor.mogrify(query))
             results = central_cursor.fetchall()
 
-    results = [result.get('strPath') for result in results]
+    results = {result.get('strPath') for result in results}
     music_db_path = db_scan.get_music_db_path()
     music_db = sqlite3.connect(music_db_path)
     music_db.row_factory = sqlite3.Row
     music_db.set_trace_callback(log)
-    like_operator = '''source.strMultipath || '%' '''
     music_db_cursor = music_db.cursor()
-    music_db_cursor.execute(query % '?', (like_operator,))
+    music_db_cursor.execute(query)
     local_results = music_db_cursor.fetchall()
     music_db_cursor.close()
     music_db.close()
-    local_results = [result['strPath'] for result in local_results]
+    local_results = {result['strPath'] for result in local_results}
     paths_to_scan = []
     for path in results:
         path_to_check = path if not use_webdav else db_scan.convert_from_smb_to_davs(path)
         if path_to_check not in local_results:
             paths_to_scan.append(path)
-    paths_to_scan_filtered = get_paths_to_scan(paths_to_scan)
-    return list(paths_to_scan_filtered.keys())
+    return get_paths_to_scan(paths_to_scan)
 
 
 def init_library():
