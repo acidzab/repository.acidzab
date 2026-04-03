@@ -46,21 +46,23 @@ def get_paths_for_init(db_params):
                                   FROM path p
                                            JOIN source s ON INSTR(p.strPath, s.strMultipath) = 1
                                   WHERE s.strMultipath NOT IN (SELECT strMultipath FROM matched_sources)
-                                    AND p.strPath NOT IN (SELECT strMultipath FROM matched_sources))
+                                    AND p.strPath NOT IN (SELECT strMultipath FROM matched_sources)),
+
+                 ranked AS (SELECT p.strPath, 1 AS priority
+                            FROM source s
+                                     JOIN path p ON s.strMultipath = p.strPath
+
+                            UNION ALL
+
+                            SELECT o.strPath, 2 AS priority
+                            FROM orphan_paths o
+                            WHERE NOT EXISTS (SELECT 1
+                                              FROM orphan_paths ancestor
+                                              WHERE INSTR(o.strPath, ancestor.strPath) = 1
+                                                AND ancestor.strPath != o.strPath))
 
             SELECT strPath
-            FROM (SELECT p.strPath, 1 AS priority
-                  FROM source s
-                           JOIN path p ON s.strMultipath = p.strPath
-
-                  UNION ALL
-
-                  SELECT o.strPath, 2 AS priority
-                  FROM orphan_paths o
-                  WHERE NOT EXISTS (SELECT 1
-                                    FROM orphan_paths ancestor
-                                    WHERE INSTR(o.strPath, ancestor.strPath) = 1
-                                      AND ancestor.strPath != o.strPath)) ranked
+            FROM ranked
             ORDER BY priority, strPath'''
     music_db_name = db_scan.get_latest_kodi_dbs().get('MyMusic')
     host = db_params.get('host')
