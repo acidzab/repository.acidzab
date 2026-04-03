@@ -377,7 +377,8 @@ def init_music_cache():
 
 if __name__ == '__main__':
     log(addon_name)
-    if db_scan.get_exec_mode() == 'init':
+    exec_mode = db_scan.get_exec_mode() if db_scan.get_exec_mode() else 'init'
+    if exec_mode == 'init':
         init_music_cache()
     else:
         preload_on_texture_cache()
