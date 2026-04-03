@@ -62,19 +62,30 @@ def get_paths_to_scan(paths):
 def get_paths_for_init(db_params):
     results = []
     query = '''
-            SELECT p.strPath
-            FROM source s
-                     JOIN path p ON s.strMultipath = p.strPath
-            UNION
-            SELECT DISTINCT path.strPath
-            FROM path
-                     JOIN source ON path.strPath LIKE CONCAT(source.strMultipath, '%')
-            WHERE source.strMultipath NOT IN
-                  (SELECT s2.strMultipath
-                   FROM source s2
-                            JOIN path p2 ON s2.strMultipath = p2.strPath)
-              AND path.strPath != source.strMultipath
-            ORDER BY strPath'''
+            WITH matched_sources AS (SELECT s.strMultipath
+                                     FROM source s
+                                              JOIN path p ON s.strMultipath = p.strPath),
+
+                 orphan_paths AS (SELECT DISTINCT p.strPath
+                                  FROM path p
+                                           JOIN source s ON INSTR(p.strPath, s.strMultipath) = 1
+                                  WHERE s.strMultipath NOT IN (SELECT strMultipath FROM matched_sources)
+                                    AND p.strPath NOT IN (SELECT strMultipath FROM matched_sources))
+
+            SELECT strPath
+            FROM (SELECT p.strPath, 1 AS priority
+                  FROM source s
+                           JOIN path p ON s.strMultipath = p.strPath
+
+                  UNION ALL
+
+                  SELECT o.strPath, 2 AS priority
+                  FROM orphan_paths o
+                  WHERE NOT EXISTS (SELECT 1
+                                    FROM orphan_paths ancestor
+                                    WHERE INSTR(o.strPath, ancestor.strPath) = 1
+                                      AND ancestor.strPath != o.strPath)) ranked
+            ORDER BY priority, strPath'''
     music_db_name = db_scan.get_latest_kodi_dbs().get('MyMusic')
     host = db_params.get('host')
     username = db_params.get('user')
