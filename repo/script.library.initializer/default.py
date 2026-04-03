@@ -35,30 +35,6 @@ def execute_addon_with_builtin(addon_id, params=None):
     xbmc.executebuiltin(builtin_cmd, True)
 
 
-def get_paths_to_scan(paths):
-    """
-    Restituisce i path "radice" da scansionare:
-    - Se un path ha figli censiti, viene incluso come radice (copre tutto il sottoalbero).
-    - Se un path non ha un padre censito, viene incluso direttamente.
-    - I path figli di una radice già inclusa vengono scartati.
-
-    Args:
-        paths: lista di path da analizzare
-
-    Returns:
-        list: path da passare a Kodi per la scansione
-    """
-    sorted_paths = sorted(paths)
-    roots = []
-    for path in sorted_paths:
-        # Se questo path è già coperto da una radice trovata, saltalo
-        if any(path.startswith(root) and path != root for root in roots):
-            continue
-        roots.append(path)
-
-    return roots
-
-
 def get_paths_for_init(db_params):
     results = []
     query = '''
@@ -115,7 +91,7 @@ def get_paths_for_init(db_params):
         path_to_check = path if not use_webdav else db_scan.convert_from_smb_to_davs(path)
         if path_to_check not in local_results:
             paths_to_scan.append(path)
-    return get_paths_to_scan(paths_to_scan)
+    return paths_to_scan
 
 
 def init_library():
