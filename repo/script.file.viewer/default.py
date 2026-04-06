@@ -61,6 +61,25 @@ def get_id_albums(paths):
     return album_ids
 
 
+def get_view_paths(paths):
+    view_paths = set()
+    query = "SELECT path FROM VIEW vista WHERE vista.path IN (%s)"
+    view_mode_db_path = db_scan.get_view_modes_db_path()
+    view_mode_db = sqlite3.connect(view_mode_db_path)
+    view_mode_db.set_trace_callback(log)
+    view_mode_db_cursor = view_mode_db.cursor()
+    chunks = [paths[i:i + sqlite_params_limit] for i in range(0, len(paths), sqlite_params_limit)]
+    results = []
+    for chunk in chunks:
+        placeholders = ','.join(['?'] * len(chunk))
+        results.extend(view_mode_db_cursor.execute(query % placeholders, chunk).fetchall())
+    view_mode_db_cursor.close()
+    view_mode_db.close()
+    for (path,) in results:
+        view_paths.add(path)
+    return view_paths
+
+
 def get_ids_to_refresh(paths_from_params, use_webdav):
     paths = []
     if paths_from_params:
@@ -98,27 +117,25 @@ def get_scanned_albums_paths(id_albums, exec_mode):
     return album_paths
 
 
-def add_new_view_record(directory, view_mode, sort_method):
-    view_mode_db_path = db_scan.get_view_modes_db_path()
-    view_mode_db = sqlite3.connect(view_mode_db_path)
-    view_mode_db.set_trace_callback(log)
-    view_mode_db_cursor = view_mode_db.cursor()
-    query_check = "SELECT * FROM VIEW vista WHERE vista.path = {}"
-    query_check = query_check.format(f'\"{directory}\"')
-    check_res = view_mode_db_cursor.execute(query_check).fetchall()
+def add_new_view_record(directory, view_mode, sort_method, exsisting_paths):
     skin_dir = xbmc.getSkinDir()
-    if not check_res and 'skin.confluence' in skin_dir:
+    directory_to_add = directory not in exsisting_paths
+    if directory_to_add and 'skin.confluence' in skin_dir:
+        view_mode_db_path = db_scan.get_view_modes_db_path()
+        view_mode_db = sqlite3.connect(view_mode_db_path)
+        view_mode_db.set_trace_callback(log)
+        view_mode_db_cursor = view_mode_db.cursor()
         # inserisco il record sul db delle view mode
         insert_query = "INSERT INTO view (window, path, viewMode, sortMethod, sortOrder, sortAttributes, skin) VALUES (?,?,?,?,?,?,?)"
         insert_values = (10502, directory, view_mode, sort_method, 1, 0, 'skin.confluence',)
         view_mode_db_cursor.execute(insert_query, insert_values)
         view_mode_db.commit()
-    view_mode_db_cursor.close()
-    view_mode_db.close()
+        view_mode_db_cursor.close()
+        view_mode_db.close()
 
 
-def force_confluence_wall_view_for_files(directory):
-    add_new_view_record(directory, 66036, 1)
+def force_confluence_wall_view_for_files(directory, exsisting_paths):
+    add_new_view_record(directory, 66036, 1, exsisting_paths)
 
 
 def get_paths_to_convert(albums_by_source):
@@ -196,8 +213,9 @@ def convert_to_thumb_view(paths_to_convert, use_webdav, id_albums, exec_mode):
         textures = get_textures()
         total_dirs_to_process = len(paths_to_convert)
         progress.create(addon_name, message='Imposto la vista di default per i file')
+        exsisting_paths = get_view_paths(paths_to_convert)
         for (step, directory) in enumerate(paths_to_convert, 1):
-            force_confluence_wall_view_for_files(directory)
+            force_confluence_wall_view_for_files(directory, exsisting_paths)
             percentuale = (step / total_dirs_to_process) * 100
             progress.update(message=directory, percent=int(percentuale))
         progress.close()
@@ -314,10 +332,12 @@ def get_textures():
 def convert_playlists_to_info_media_view():
     progress = xbmcgui.DialogProgressBG()
     playlists = xbmcvfs.listdir(os.path.join('special://profile/playlists/music'))[1]
+    playlists_paths = [f'special://profile/playlists/music/{playlist}/' for playlist in playlists]
+    exsisting_playlists = get_view_paths(playlists_paths)
     progress.create(addon_name, message='Imposto la vista di default per le playlist')
     for (step, playlist) in enumerate(playlists, 1):
         playlist_path = f'special://profile/playlists/music/{playlist}/'
-        add_new_view_record(playlist_path, 66042, 22)
+        add_new_view_record(playlist_path, 66042, 22, exsisting_playlists)
         percentuale = (step / len(playlists)) * 100
         progress.update(message=playlist, percent=int(percentuale))
     progress.close()
