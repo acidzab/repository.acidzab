@@ -304,20 +304,12 @@ def get_album_path_by_id(id_albums, use_central, db_params, music_db_name, fetch
             paths_to_update = []
             paths = paths_by_album.get(id_album)
             if paths:
-                common_prefix = ''
-                min_length = min(len(path) for path in paths)
-
-                for i in range(min_length):
-                    char = paths[0][i]
-                    if all(path[i] == char for path in paths):
-                        common_prefix += char
-                    else:
-                        break
-                # Trova l'ultimo slash nel prefisso comune
-                if common_prefix and '/' in common_prefix:
-                    if any(common_prefix.startswith(source) and common_prefix != source for source in sources) and common_prefix in central_paths:
-                        last_slash = common_prefix.rfind('/')
-                        common_prefix = common_prefix[:last_slash + 1]
+                common_prefix = os.path.commonprefix(paths)
+                # commonprefix può tagliare a metà un nome, tronchiamo all'ultimo slash
+                if '/' in common_prefix:
+                    common_prefix = common_prefix[:common_prefix.rfind('/') + 1]
+                    if any(common_prefix.startswith(source) and common_prefix != source for source in
+                           sources) and common_prefix in central_paths:
                         paths_to_update.append(common_prefix)
                         album_path_by_id[id_album] = paths_to_update
                     else:
