@@ -768,20 +768,15 @@ def compact_db():
 
 
 def clean_paths():
-    query = '''DELETE
-               FROM path
-               WHERE idPath IN
-                     (SELECT p.idPath
-                      FROM path p
-                      WHERE p.idPath NOT IN
-                            (SELECT idPath
-                             FROM song)
-                        AND NOT EXISTS
-                          (SELECT 1
-                           FROM path child
-                           WHERE child.strPath LIKE p.strPath || '%'
-                             AND child.strPath != p.strPath)
-                      ORDER BY p.strPath)'''
+    query = '''WITH song_paths AS (SELECT p.strPath
+                                   FROM path p
+                                   WHERE p.idPath IN (SELECT idPath FROM song))
+    DELETE
+    FROM path
+    WHERE idPath NOT IN (SELECT idPath FROM song)
+      AND NOT EXISTS (SELECT 1
+                      FROM song_paths sp
+                      WHERE SUBSTR(sp.strPath, 1, LENGTH(path.strPath)) = path.strPath)'''
     music_db_path = db_scan.get_music_db_path()
     music_db = sqlite3.connect(music_db_path)
     music_db.row_factory = sqlite3.Row
