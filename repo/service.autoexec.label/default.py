@@ -167,16 +167,16 @@ def get_releases_to_align(db_params, music_db_name, sources, central_paths):
     albums_to_remove = []
 
     # Path da aggiungere: presenti in central ma non in local
-    for mbid, central_paths in central_dict.items():
+    for mbid, central_dirs in central_dict.items():
         local_paths = local_dict.get(mbid, set())
-        paths_to_add = central_paths - local_paths
+        paths_to_add = central_dirs - local_paths
         if paths_to_add:
             albums_to_add.append({'mbid': mbid, 'path': list(paths_to_add)})
 
     # Path da rimuovere: presenti in local ma non in central
     for mbid, local_paths in local_dict.items():
-        central_paths = central_dict.get(mbid, set())
-        paths_to_remove = local_paths - central_paths
+        central_dirs = central_dict.get(mbid, set())
+        paths_to_remove = local_paths - central_dirs
         if paths_to_remove:
             albums_to_remove.append({'mbid': mbid, 'path': list(paths_to_remove)})
 
@@ -199,7 +199,8 @@ def check_for_scans(db_params):
     return scan_results and scan_results.get('scan')
 
 
-def get_sources():
+def get_sources(db_params):
+    use_webdav = db_params.get('sourcetype') == 'webdav'
     json_payload = {
         "jsonrpc": "2.0",
         "method": "AudioLibrary.GetSources",
@@ -215,7 +216,8 @@ def get_sources():
     response = json.loads(get_sources_req)
     if response.get('result'):
         sources = response.get('result').get('sources')
-    return {source.get('file') for source in sources}
+    return {db_scan.convert_from_davs_to_smb(source.get('file')) if use_webdav else source.get('file') for source in
+            sources}
 
 
 def init_music_database():
@@ -390,7 +392,7 @@ def sync_paths_to_scan(db_params, music_db_name):
     if central_playlists_enabled:
         playlist_source = f'{db_params.get("sambasource")}/playlists/music/'
         sync_playlists_to_central_path(playlist_source, db_params)
-    sources = get_sources()
+    sources = get_sources(db_params)
     central_paths = get_central_paths(db_params, music_db_name)
     albums_to_sync = get_albums_to_sync(local_last_scanned, music_db_name, db_params, sources, central_paths)
     albums_to_align = get_releases_to_align(db_params, music_db_name, sources, central_paths)
