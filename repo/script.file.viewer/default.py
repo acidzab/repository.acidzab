@@ -2,6 +2,8 @@ import json
 import os
 import re
 import sqlite3
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import quote, unquote
 
 import db_scan
@@ -15,6 +17,8 @@ audio_extensions = ['.mp3', '.wav', '.wma', '.aac', '.flac', '.ogg', '.m4a', '.a
 addon_name = xbmcaddon.Addon().getAddonInfo('name')
 addon_id = xbmcaddon.Addon().getAddonInfo('id')
 sqlite_params_limit = 999
+# Semaforo per non sovraccaricare Kodi con troppe richieste simultanee
+_texture_semaphore = threading.Semaphore(4)
 
 
 def log(msg):
@@ -289,15 +293,43 @@ def get_thumbs_to_cache(id_albums, textures, use_webdav, exec_mode):
     return thumbs_to_cache
 
 
+def _cache_single_thumb(path_to_cache, dir_path, img_vfs_url):
+    """Cacha una singola texture in modo thread-safe"""
+    with _texture_semaphore:
+        try:
+            update_texture_path(dir_path, img_vfs_url)
+            with xbmcvfs.File(path_to_cache):
+                pass
+            return path_to_cache, True
+        except Exception as e:
+            log(f'Errore caching texture {path_to_cache}: {e}')
+            return path_to_cache, False
+
+
 def cache_thumbs(paths_to_cache, progress_bar):
-    total_paths_to_cache = len(paths_to_cache)
-    for (step, path_to_cache) in enumerate(paths_to_cache, 1):
-        update_texture_path(paths_to_cache.get(path_to_cache)[1], path_to_cache)
-        with xbmcvfs.File(path_to_cache):
-            pass
-        percentuale = (step / total_paths_to_cache) * 100
-        message = paths_to_cache.get(path_to_cache)[0]
-        progress_bar.update(message=message, percent=int(percentuale))
+    total = len(paths_to_cache)
+    completed = 0
+    lock = threading.Lock()
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = {
+            executor.submit(
+                _cache_single_thumb,
+                path,
+                paths_to_cache[path][1],  # dir_path
+                path  # img_vfs_url
+            ): path
+            for path in paths_to_cache
+        }
+
+        for future in as_completed(futures):
+            path, success = future.result()
+            message = paths_to_cache[path][0]
+
+            with lock:
+                completed += 1
+                percent = int((completed / total) * 100)
+                progress_bar.update(message=message, percent=percent)
 
 
 def get_textures():

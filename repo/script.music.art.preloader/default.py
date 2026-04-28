@@ -1,4 +1,6 @@
 import json
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import db_scan
 import xbmc
@@ -8,6 +10,7 @@ import xbmcvfs
 
 addon_name = xbmcaddon.Addon().getAddonInfo('name')
 addon_id = xbmcaddon.Addon().getAddonInfo('id')
+_texture_semaphore = threading.Semaphore(4)
 
 
 class CacheCleanerMonitor(xbmc.Monitor):
@@ -253,12 +256,24 @@ def build_entity_map(id_albums, textures):
     return build_entity_map_by_entities(artists, last_albums_added, last_songs_added, textures)
 
 
+def _cache_single_texture(entity_name, thumbnail):
+    """Cacha una singola texture in modo thread-safe"""
+    with _texture_semaphore:
+        try:
+            with xbmcvfs.File(thumbnail):
+                pass
+            return entity_name, thumbnail, True
+        except Exception as e:
+            log(f'Errore caching texture {entity_name} - {thumbnail}: {e}')
+            return entity_name, thumbnail, False
+
+
 def cache_medias_textures(entities_by_type):
     progress = xbmcgui.DialogProgressBG()
     progress.create(addon_name)
+    lock = threading.Lock()
 
     for entity_type in entities_by_type.keys():
-        # Imposta il messaggio in base al tipo di entità
         msg = {
             'album': 'Processing Albums',
             'song': 'Processing Songs',
@@ -267,21 +282,33 @@ def cache_medias_textures(entities_by_type):
 
         progress.update(message=msg)
         entities = entities_by_type.get(entity_type)
-        total_entities_to_process = len(entities)
 
-        for (step, entity) in enumerate(entities, 1):
-            entity_name = entity.get('label')
+        # Costruisce il dizionario futures: (entity_name, thumbnail)
+        tasks = {}
+        for entity in entities:
+            for field in entity.keys():
+                if field.startswith('thumb'):
+                    thumbnail = entity.get(field)
+                    if thumbnail:
+                        tasks[(entity.get('label'), thumbnail)] = entity.get('label')
 
-            # Calcola la percentuale
-            percentuale = (step / total_entities_to_process) * 100
-            progress.update(percent=int(percentuale), message=entity_name)
+        total = len(tasks)
+        if total == 0:
+            continue
 
-            # Filtra e processa tutti i campi che iniziano con 'thumb'
-            for entity_field in entity.keys():
-                if entity_field.startswith('thumb'):
-                    thumbnail = entity.get(entity_field)
-                    with xbmcvfs.File(thumbnail):
-                        pass
+        completed = 0
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = {
+                executor.submit(_cache_single_texture, entity_name, thumbnail): (entity_name, thumbnail)
+                for (entity_name, thumbnail) in tasks.keys()
+            }
+            for future in as_completed(futures):
+                entity_name, thumbnail, success = future.result()
+                with lock:
+                    completed += 1
+                    percent = int((completed / total) * 100)
+                    progress.update(percent=percent, message=entity_name)
 
     progress.close()
 
