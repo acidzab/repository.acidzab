@@ -22,26 +22,6 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="context.playlist.append" name="Playlist Append" version="1.2.3" provider-name="AcidZab">
-    <requires>
-        <import addon="xbmc.python" version="3.0.1" />
-        <import addon="script.module.scansioni" version="1.1.6" />
-    </requires>
-    <extension point="kodi.context.item" library="addon.py">
-        <item>
-            <label>Aggiungi ad una playlist</label>
-            <visible>Container.Content(songs)</visible>
-        </item>
-    </extension>
-    <extension point="xbmc.addon.metadata">
-        <summary lang="en">Add media to a playlist.</summary>
-        <description lang="en">Add media to an existing basic playlist. Based on original Curti addon</description>
-        <platform>all</platform>
-        <license>GNU General Public License, v2</license>
-        <assets>
-            <icon>icon.png</icon>
-        </assets>
-    </extension>
 </addon><addon id="context.playlist.manager" name="Playlist Manager" version="1.0.0" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.0.1" />
@@ -62,27 +42,6 @@
     <extension point="xbmc.addon.metadata">
         <summary>Gestore playlist</summary>
         <description>Add-on per permettere la gestione delle playlist su Kodi</description>
-        <platform>all</platform>
-        <license>GNU General Public License, v2</license>
-        <email>gigi@gigi.com</email>
-        <assets>
-            <icon>icon.png</icon>
-        </assets>
-    </extension>
-</addon><addon id="context.playlist.remove" name="Playlist Item Remover" version="1.2.0" provider-name="AcidZab">
-    <requires>
-        <import addon="xbmc.python" version="3.0.1" />
-        <import addon="script.module.scansioni" version="1.1.6" />
-    </requires>
-    <extension point="kodi.context.item" library="addon.py">
-        <item>
-            <label>Rimuovi dalla playlist</label>
-            <visible>Container.Content(songs) + String.Contains(Container.FolderPath,playlists)</visible>
-        </item>
-    </extension>
-    <extension point="xbmc.addon.metadata">
-        <summary>Rimuove una traccia dalla playlist</summary>
-        <description>Rimuove la traccia selezionata all'interno della playlist</description>
         <platform>all</platform>
         <license>GNU General Public License, v2</license>
         <email>gigi@gigi.com</email>
