@@ -178,16 +178,16 @@ def get_first_letters(medias):
 def preload_alphabetical_nodes():
     # inizializzo i vari nodi
     if not xbmcvfs.exists(local_alphabetical_artists):
-        log(f'Inizializzo Artisti Alfabetici')
-        init_node(local_alphabetical_artists, artists_default_icon, 'Artisti Alfabetici', 30)
+        log(f'Inizializzo Artisti')
+        init_node(local_alphabetical_artists, artists_default_icon, 'Artisti', 30)
 
     if not xbmcvfs.exists(local_alphabetical_albums):
-        log(f'Inizializzo Album Alfabetici')
-        init_node(local_alphabetical_albums, albums_default_icon, 'Album Alfabetici', 20)
+        log(f'Inizializzo Album')
+        init_node(local_alphabetical_albums, albums_default_icon, 'Album', 20)
 
     if not xbmcvfs.exists(local_alphabetical_compilations):
-        log(f'Inizializzo Compilation Alfabetiche')
-        init_node(local_alphabetical_compilations, compilations_default_icon, 'Compilation Alfabetiche', 60)
+        log(f'Inizializzo Compilation')
+        init_node(local_alphabetical_compilations, compilations_default_icon, 'Compilation', 60)
 
     artists = get_artists()
     albums = get_albums()
