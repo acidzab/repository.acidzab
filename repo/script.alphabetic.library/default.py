@@ -179,15 +179,15 @@ def preload_alphabetical_nodes():
     # inizializzo i vari nodi
     if not xbmcvfs.exists(local_alphabetical_artists):
         log(f'Inizializzo Artisti')
-        init_node(local_alphabetical_artists, artists_default_icon, 'Artisti', 30)
+        init_node(local_alphabetical_artists, artists_default_icon, '133', 30)
 
     if not xbmcvfs.exists(local_alphabetical_albums):
         log(f'Inizializzo Album')
-        init_node(local_alphabetical_albums, albums_default_icon, 'Album', 20)
+        init_node(local_alphabetical_albums, albums_default_icon, '132', 20)
 
     if not xbmcvfs.exists(local_alphabetical_compilations):
         log(f'Inizializzo Compilation')
-        init_node(local_alphabetical_compilations, compilations_default_icon, 'Compilation', 60)
+        init_node(local_alphabetical_compilations, compilations_default_icon, '521', 60)
 
     artists = get_artists()
     albums = get_albums()

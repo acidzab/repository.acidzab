@@ -105,7 +105,7 @@ def init_genres_node():
     destination_path = os.path.join(genres_local, file_name)
     node = ET.Element('node', order='70')
     label = ET.SubElement(node, 'label')
-    label.text = 'Generi'
+    label.text = '135'
     icon = ET.SubElement(node, 'icon')
     icon.text = kodi_genre_default_icon
     index_xml = minidom.parseString(ET.tostring(node, encoding='UTF-8')).toprettyxml()
