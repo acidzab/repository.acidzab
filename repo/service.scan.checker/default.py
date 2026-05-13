@@ -1,3 +1,4 @@
+import json
 import time
 
 import db_scan
@@ -71,20 +72,23 @@ def execute_service():
                 continue
 
             if line.startswith('data:'):
-                message = line[5:].strip()
+                message = json.loads(line[5:].strip())
 
                 # Verifica che non ci sia già una scansione in corso
                 if xbmc.getCondVisibility('Library.IsScanningMusic'):
                     log("Scansione già in corso, ignoro il comando")
                     continue
-
-                if message == "scan":
+                operation = message.get('operation')
+                paths = message.get('paths')
+                if operation == "scan":
                     log('È stata effettuata una scansione, procediamo ad effettuare la scansione')
                     execute_addon_with_builtin('service.autoexec.label')
-
-                elif message == "align":
+                elif operation == "align":
                     log('È stato richiesto un allineamento dei dati col db centrale')
                     params = db_scan.encode_string(f'?mode=init', safe_chars='()!')
+                    if paths:
+                        query_string = ';'.join([f"path={path}" for path in paths if path])
+                        params = db_scan.encode_string(f'?{query_string};mode={operation}', safe_chars='()!')
                     execute_addon_with_builtin('script.scanner.trigger', params)
                 else:
                     log(f"Comando sconosciuto: {message}")

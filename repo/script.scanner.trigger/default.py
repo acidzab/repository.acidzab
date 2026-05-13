@@ -1139,8 +1139,9 @@ def trigger_scan():
                 path = db_scan.convert_from_smb_to_davs(path)
             if path not in paths_to_scan_local:
                 paths_to_scan_local.append(path)
-    force_path_rescan(paths_to_scan_local)
-    scan_folders(paths_to_scan_local)
+    if exec_mode != 'align':
+        force_path_rescan(paths_to_scan_local)
+        scan_folders(paths_to_scan_local)
     clean_paths()
     align_media_to_central_db(paths_to_scan, paths_to_scan_local, exec_mode, db_params)
     align_monitor = AlignMonitor()
