@@ -157,22 +157,6 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="script.module.scansioni" name="Zab Commons Utils" version="1.1.7" provider-name="AcidZab">
-    <requires>
-        <import addon="xbmc.python" version="3.0.1" />
-        <import addon="script.module.pymysql" version="1.1.0" />
-        <import addon="script.module.requests" version="2.31.0" />
-    </requires>
-    <extension point="xbmc.python.module" library="lib" />
-    <extension point="xbmc.addon.metadata">
-        <summary lang="it">Metodi di utilità</summary>
-        <description lang="it">Modulo che contiene metodi di utilità comuni utilizzati dai vari add-on</description>
-        <platform>all</platform>
-        <license>GNU GENERAL PUBLIC LICENSE Version 2</license>
-        <assets>
-            <icon>icon.png</icon>
-        </assets>
-    </extension>
 </addon><addon id="script.module.zab.commons" name="Zab Commons Utils" version="1.0.0" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.0.1" />
@@ -261,24 +245,6 @@
     <extension point="xbmc.addon.metadata">
         <summary lang="it">Ricarica le texture</summary>
         <description lang="it">Servizio che si occupa di ricaricare le texture dopo un aggiornamento della libreria</description>
-        <platform>all</platform>
-        <license>GNU GENERAL PUBLIC LICENSE Version 2</license>
-        <assets>
-            <icon>icon.png</icon>
-        </assets>
-    </extension>
-</addon><addon id="service.autoexec.label" name="Library Sync" version="1.6.2" provider-name="AcidZab">
-    <requires>
-        <import addon="xbmc.python" version="3.0.1" />
-        <import addon="script.module.scansioni" version="1.1.6" />
-    </requires>
-    <extension point="xbmc.service" library="autoexec.py" />
-    <extension point="xbmc.python.script" library="default.py">
-        <provides>executable</provides>
-    </extension>
-    <extension point="xbmc.addon.metadata">
-        <summary lang="it">Aggiorna la libreria all'avvio</summary>
-        <description lang="it">Servizio che si scatena all'avvio di Kodi per allineare il database con il server centrale</description>
         <platform>all</platform>
         <license>GNU GENERAL PUBLIC LICENSE Version 2</license>
         <assets>
