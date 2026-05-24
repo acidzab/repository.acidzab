@@ -82,7 +82,7 @@ def execute_service():
                 paths = message.get('paths')
                 if operation == "scan":
                     log('È stata effettuata una scansione, procediamo ad effettuare la scansione')
-                    execute_addon_with_builtin('service.autoexec.label')
+                    execute_addon_with_builtin('service.autoexec.library.sync')
                 elif operation == "align":
                     log('È stato richiesto un allineamento dei dati col db centrale')
                     params = db_scan.encode_string(f'?mode=init', safe_chars='()!')
