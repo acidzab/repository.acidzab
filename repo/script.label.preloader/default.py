@@ -23,7 +23,7 @@ etichette_local_special = 'special://masterprofile/library/music/etichette/'
 etichette_local = xbmcvfs.translatePath(etichette_local_special)
 kodi_label_default_icon = 'DefaultMusicAlbums.png'
 smb_safe_chars = '()!'
-
+non_alphabetical_folder = 'NSP'
 
 def log(msg):
     xbmc.log(str(msg), xbmc.LOGDEBUG)
@@ -93,9 +93,9 @@ def get_label_folder_name(label):
         is_special_numeric = (unicode_category.startswith('N') or unicode_category.startswith('S')
                               or unicode_category.startswith('P'))
         if label_folder_name in string.punctuation or label_folder_name in string.digits or is_special_numeric:
-            label_folder_name = "#0"
+            label_folder_name = non_alphabetical_folder
         label_folder_name = unidecode(label_folder_name)
-        if label_folder_name != "#0" and len(label_folder_name) > 1:
+        if label_folder_name != non_alphabetical_folder and len(label_folder_name) > 1:
             label_folder_name = label_folder_name[0].capitalize()
     return label_folder_name
 
@@ -349,7 +349,7 @@ def build_labels_by_initial_letter(labels):
             initial = label[0]
             not_alphanumeric = initial in string.punctuation or initial in string.digits or unicodedata.category(
                 initial) == 'Lo'
-            key = "#0" if not_alphanumeric else unidecode(initial).upper()
+            key = non_alphabetical_folder if not_alphanumeric else unidecode(initial).upper()
             labels_list = labels_by_initial_letter.get(key)
             if not labels_list:
                 labels_list = []
