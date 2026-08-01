@@ -273,44 +273,45 @@ def cache_medias_textures(entities_by_type):
     progress.create(addon_name)
     lock = threading.Lock()
 
-    for entity_type in entities_by_type.keys():
-        msg = {
-            'album': 'Processing Albums',
-            'song': 'Processing Songs',
-            'artist': 'Processing Artists'
-        }.get(entity_type, 'Processing Music')
+    try:
+        for entity_type in entities_by_type.keys():
+            msg = {
+                'album': 'Processing Albums',
+                'song': 'Processing Songs',
+                'artist': 'Processing Artists'
+            }.get(entity_type, 'Processing Music')
 
-        progress.update(message=msg)
-        entities = entities_by_type.get(entity_type)
+            progress.update(message=msg)
+            entities = entities_by_type.get(entity_type)
 
-        # Costruisce il dizionario futures: (entity_name, thumbnail)
-        tasks = {}
-        for entity in entities:
-            for field in entity.keys():
-                if field.startswith('thumb'):
-                    thumbnail = entity.get(field)
-                    if thumbnail:
-                        tasks[(entity.get('label'), thumbnail)] = entity.get('label')
+            # Costruisce il dizionario futures: (entity_name, thumbnail)
+            tasks = {}
+            for entity in entities:
+                for field in entity.keys():
+                    if field.startswith('thumb'):
+                        thumbnail = entity.get(field)
+                        if thumbnail:
+                            tasks[(entity.get('label'), thumbnail)] = entity.get('label')
 
-        total = len(tasks)
-        if total == 0:
-            continue
+            total = len(tasks)
+            if total == 0:
+                continue
 
-        completed = 0
+            completed = 0
 
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            futures = {
-                executor.submit(_cache_single_texture, entity_name, thumbnail): (entity_name, thumbnail)
-                for (entity_name, thumbnail) in tasks.keys()
-            }
-            for future in as_completed(futures):
-                entity_name, thumbnail, success = future.result()
-                with lock:
-                    completed += 1
-                    percent = int((completed / total) * 100)
-                    progress.update(percent=percent, message=entity_name)
-
-    progress.close()
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                futures = {
+                    executor.submit(_cache_single_texture, entity_name, thumbnail): (entity_name, thumbnail)
+                    for (entity_name, thumbnail) in tasks.keys()
+                }
+                for future in as_completed(futures):
+                    entity_name, thumbnail, success = future.result()
+                    with lock:
+                        completed += 1
+                        percent = int((completed / total) * 100)
+                        progress.update(percent=percent, message=entity_name)
+    finally:
+        progress.close()
 
 
 def get_id_albums_by_paths(id_albums, scanned_path):

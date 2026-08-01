@@ -827,129 +827,131 @@ def force_path_rescan(paths_to_scan):
 
 def align_media_to_central_db(paths, local_paths, exec_mode, db_params):
     progress = xbmcgui.DialogProgressBG()
-    media_by_id = get_media_details_from_directory(paths, local_paths, db_params)
-    music_db_name = db_scan.get_latest_kodi_dbs().get('MyMusic')
-    albums_id_central = []
-    albums_id_local = []
-    songs_id_central = []
-    songs_id_local = []
-    artists_id_central = set()
-    artists_id_local = set()
-    arts_to_insert = set()
-    arts_to_update = set()
-    arts_to_remove = set()
+    try:
+        media_by_id = get_media_details_from_directory(paths, local_paths, db_params)
+        music_db_name = db_scan.get_latest_kodi_dbs().get('MyMusic')
+        albums_id_central = []
+        albums_id_local = []
+        songs_id_central = []
+        songs_id_local = []
+        artists_id_central = set()
+        artists_id_local = set()
+        arts_to_insert = set()
+        arts_to_update = set()
+        arts_to_remove = set()
 
-    for media_id in media_by_id:
-        # id per album e brani
-        media = media_by_id.get(media_id)
-        if media.get('albumid') and media.get('albumid') not in albums_id_central:
-            albums_id_central.append(media.get('albumid'))
-        if media.get('localalbumid') and media.get('localalbumid') not in albums_id_local:
-            albums_id_local.append(media.get('localalbumid'))
-        if media.get('type') == 'album' and media.get('songs'):
-            for song in media.get('songs'):
-                if song.get('songid') and song.get('songid') not in songs_id_central:
-                    songs_id_central.append(song.get('songid'))
-                if song.get('localsongid') and song.get('localsongid') not in songs_id_local:
-                    songs_id_local.append(song.get('localsongid'))
-                if song.get('artistid'):
-                    artists_id_central.update(song.get('artistid'))
-                if song.get('localartistid'):
-                    artists_id_local.update(song.get('localartistid'))
-        else:
-            if media.get('type') == 'song' and media.get('id') not in songs_id_central:
-                songs_id_central.append(media.get('id'))
-            if media.get('type') == 'song' and media_id not in songs_id_local:
-                songs_id_local.append(media_id)
-        # id per gli artisti
-        artists_id_central.update(media.get('artistid'))
-        if media.get('albumartistid'):
-            artists_id_local.update(media.get('albumartistid'))
-        artists_id_local.update(media.get('localartistid'))
-        if media.get('localalbumartistid'):
-            artists_id_local.update(media.get('localalbumartistid'))
-
-    # Allineo i dati degli artisti col db centrale
-    progress.create(addon_name, message='Allineo i dati artista')
-    central_artists_data = get_artists_data(artists_id_central, db_params, True, music_db_name)
-    local_artists_data = get_artists_data(artists_id_local, db_params, False, music_db_name)
-    central_artists_by_mbid = {artist.get('mbid'): artist for artist in central_artists_data}
-    local_artists_by_mbid = {artist.get('mbid'): artist for artist in local_artists_data}
-    artists_to_update = []
-    for artist_mbid in central_artists_by_mbid.keys():
-        central_artist = central_artists_by_mbid.get(artist_mbid)
-        local_artist = local_artists_by_mbid.get(artist_mbid)
-        if central_artist:
-            original_central_id_artist = central_artist['id']
-        if central_artist and local_artist:
-            central_artist['id'] = local_artist['id']
-            if local_artist != central_artist:
-                artists_to_update.append(artist_mbid)
-            central_artist['id'] = original_central_id_artist
-    update_artist_records(central_artists_by_mbid, local_artists_by_mbid, artists_to_update)
-
-    progress.update(message='Allineo gli artwork')
-    central_album_arts = get_artworks_by_key(albums_id_central, 'album', db_params, True, music_db_name)
-    local_album_arts = get_artworks_by_key(albums_id_local, 'album', db_params, False, music_db_name)
-    central_song_arts = get_artworks_by_key(albums_id_central, 'song', db_params, True, music_db_name)
-    local_song_arts = get_artworks_by_key(albums_id_local, 'song', db_params, False, music_db_name)
-
-    if media_by_id:
         for media_id in media_by_id:
+            # id per album e brani
             media = media_by_id.get(media_id)
-            if media and media.get('localalbumid'):
-                central_album_art = central_album_arts.get((media.get('albumid'), media.get('musicbrainzalbumid')))
-                local_album_art = local_album_arts.get((media.get('localalbumid'), media.get('musicbrainzalbumid')))
-                _prepare_art_tuples_optimized(arts_to_insert, arts_to_remove, arts_to_update, central_album_art,
-                                              local_album_art,
-                                              media.get('localalbumid'), 'album')
-        for media_id in media_by_id:
-            media_details = media_by_id.get(media_id)
-            if media_details:
-                id_song = media_id
-                if media_details.get('type') == 'album' and media_details.get('songs'):
-                    for song in media_details.get('songs'):
-                        id_song = song.get('localsongid')
-                        central_key = (song.get('songid'), song.get('musicbrainzalbumid'), song.get('label'))
-                        local_key = (id_song, song.get('musicbrainzalbumid'), song.get('label'))
+            if media.get('albumid') and media.get('albumid') not in albums_id_central:
+                albums_id_central.append(media.get('albumid'))
+            if media.get('localalbumid') and media.get('localalbumid') not in albums_id_local:
+                albums_id_local.append(media.get('localalbumid'))
+            if media.get('type') == 'album' and media.get('songs'):
+                for song in media.get('songs'):
+                    if song.get('songid') and song.get('songid') not in songs_id_central:
+                        songs_id_central.append(song.get('songid'))
+                    if song.get('localsongid') and song.get('localsongid') not in songs_id_local:
+                        songs_id_local.append(song.get('localsongid'))
+                    if song.get('artistid'):
+                        artists_id_central.update(song.get('artistid'))
+                    if song.get('localartistid'):
+                        artists_id_local.update(song.get('localartistid'))
+            else:
+                if media.get('type') == 'song' and media.get('id') not in songs_id_central:
+                    songs_id_central.append(media.get('id'))
+                if media.get('type') == 'song' and media_id not in songs_id_local:
+                    songs_id_local.append(media_id)
+            # id per gli artisti
+            artists_id_central.update(media.get('artistid'))
+            if media.get('albumartistid'):
+                artists_id_local.update(media.get('albumartistid'))
+            artists_id_local.update(media.get('localartistid'))
+            if media.get('localalbumartistid'):
+                artists_id_local.update(media.get('localalbumartistid'))
+
+        # Allineo i dati degli artisti col db centrale
+        progress.create(addon_name, message='Allineo i dati artista')
+        central_artists_data = get_artists_data(artists_id_central, db_params, True, music_db_name)
+        local_artists_data = get_artists_data(artists_id_local, db_params, False, music_db_name)
+        central_artists_by_mbid = {artist.get('mbid'): artist for artist in central_artists_data}
+        local_artists_by_mbid = {artist.get('mbid'): artist for artist in local_artists_data}
+        artists_to_update = []
+        for artist_mbid in central_artists_by_mbid.keys():
+            central_artist = central_artists_by_mbid.get(artist_mbid)
+            local_artist = local_artists_by_mbid.get(artist_mbid)
+            if central_artist:
+                original_central_id_artist = central_artist['id']
+            if central_artist and local_artist:
+                central_artist['id'] = local_artist['id']
+                if local_artist != central_artist:
+                    artists_to_update.append(artist_mbid)
+                central_artist['id'] = original_central_id_artist
+        update_artist_records(central_artists_by_mbid, local_artists_by_mbid, artists_to_update)
+
+        progress.update(message='Allineo gli artwork')
+        central_album_arts = get_artworks_by_key(albums_id_central, 'album', db_params, True, music_db_name)
+        local_album_arts = get_artworks_by_key(albums_id_local, 'album', db_params, False, music_db_name)
+        central_song_arts = get_artworks_by_key(albums_id_central, 'song', db_params, True, music_db_name)
+        local_song_arts = get_artworks_by_key(albums_id_local, 'song', db_params, False, music_db_name)
+
+        if media_by_id:
+            for media_id in media_by_id:
+                media = media_by_id.get(media_id)
+                if media and media.get('localalbumid'):
+                    central_album_art = central_album_arts.get((media.get('albumid'), media.get('musicbrainzalbumid')))
+                    local_album_art = local_album_arts.get((media.get('localalbumid'), media.get('musicbrainzalbumid')))
+                    _prepare_art_tuples_optimized(arts_to_insert, arts_to_remove, arts_to_update, central_album_art,
+                                                  local_album_art,
+                                                  media.get('localalbumid'), 'album')
+            for media_id in media_by_id:
+                media_details = media_by_id.get(media_id)
+                if media_details:
+                    id_song = media_id
+                    if media_details.get('type') == 'album' and media_details.get('songs'):
+                        for song in media_details.get('songs'):
+                            id_song = song.get('localsongid')
+                            central_key = (song.get('songid'), song.get('musicbrainzalbumid'), song.get('label'))
+                            local_key = (id_song, song.get('musicbrainzalbumid'), song.get('label'))
+                            central_song_art = central_song_arts.get(central_key)
+                            local_song_art = local_song_arts.get(local_key)
+                            _prepare_art_tuples_optimized(arts_to_insert, arts_to_remove, arts_to_update, central_song_art,
+                                                          local_song_art,
+                                                          id_song, 'song')
+                    else:
+                        central_key = (media_details.get('id'), media_details.get('musicbrainzalbumid'),
+                                       media_details.get('label'))
                         central_song_art = central_song_arts.get(central_key)
+                        local_key = (id_song, media_details.get('musicbrainzalbumid'), media_details.get('label'))
                         local_song_art = local_song_arts.get(local_key)
                         _prepare_art_tuples_optimized(arts_to_insert, arts_to_remove, arts_to_update, central_song_art,
                                                       local_song_art,
                                                       id_song, 'song')
-                else:
-                    central_key = (media_details.get('id'), media_details.get('musicbrainzalbumid'),
-                                   media_details.get('label'))
-                    central_song_art = central_song_arts.get(central_key)
-                    local_key = (id_song, media_details.get('musicbrainzalbumid'), media_details.get('label'))
-                    local_song_art = local_song_arts.get(local_key)
-                    _prepare_art_tuples_optimized(arts_to_insert, arts_to_remove, arts_to_update, central_song_art,
-                                                  local_song_art,
-                                                  id_song, 'song')
 
-                for central_mbid in central_artists_by_mbid.keys():
-                    central_artist_info = central_artists_by_mbid.get(central_mbid)
-                    local_artist_info = local_artists_by_mbid.get(central_mbid)
-                    if central_artist_info and local_artist_info:
-                        central_artist_art = {'thumb': central_artist_info.get('art_url')} if central_artist_info.get(
-                            'art_url') else None
-                        local_artist_art = {'thumb': local_artist_info.get('art_url')} if local_artist_info.get(
-                            'art_url') else None
-                        central_artist_info['id'] = local_artist_info.get('id')
-                        _prepare_art_tuples_optimized(arts_to_insert, arts_to_remove, arts_to_update,
-                                                      central_artist_art,
-                                                      local_artist_art,
-                                                      local_artist_info.get('id'), 'artist')
-    else:
-        processed_arts = process_media_art_with_batching(db_params, music_db_name, central_album_arts, local_album_arts,
-                                                         central_song_arts, local_song_arts, central_artists_by_mbid,
-                                                         local_artists_by_mbid)
-        arts_to_insert = processed_arts.get('arts_to_insert')
-        arts_to_remove = processed_arts.get('arts_to_remove')
-        arts_to_update = processed_arts.get('arts_to_update')
+                    for central_mbid in central_artists_by_mbid.keys():
+                        central_artist_info = central_artists_by_mbid.get(central_mbid)
+                        local_artist_info = local_artists_by_mbid.get(central_mbid)
+                        if central_artist_info and local_artist_info:
+                            central_artist_art = {'thumb': central_artist_info.get('art_url')} if central_artist_info.get(
+                                'art_url') else None
+                            local_artist_art = {'thumb': local_artist_info.get('art_url')} if local_artist_info.get(
+                                'art_url') else None
+                            central_artist_info['id'] = local_artist_info.get('id')
+                            _prepare_art_tuples_optimized(arts_to_insert, arts_to_remove, arts_to_update,
+                                                          central_artist_art,
+                                                          local_artist_art,
+                                                          local_artist_info.get('id'), 'artist')
+        else:
+            processed_arts = process_media_art_with_batching(db_params, music_db_name, central_album_arts, local_album_arts,
+                                                             central_song_arts, local_song_arts, central_artists_by_mbid,
+                                                             local_artists_by_mbid)
+            arts_to_insert = processed_arts.get('arts_to_insert')
+            arts_to_remove = processed_arts.get('arts_to_remove')
+            arts_to_update = processed_arts.get('arts_to_update')
 
-    update_arts(list(arts_to_insert), list(arts_to_update), list(arts_to_remove))
-    progress.close()
+        update_arts(list(arts_to_insert), list(arts_to_update), list(arts_to_remove))
+    finally:
+        progress.close()
     compact_db()
 
     query_string = ';'.join([f"path={path}" for path in paths if path])

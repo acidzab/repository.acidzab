@@ -406,38 +406,39 @@ def refresh_textures(paths, exec_mode, paths_from_params):
 
     progress = xbmcgui.DialogProgressBG()
     progress.create(addon_name)
-    total_types_to_process = len(entities_by_type.keys())
-    for (step, entity_type) in enumerate(entities_by_type.keys(), 1):
-        msg = ''
-        if entity_type == 'album':
-            msg = 'Processing Albums'
-        elif entity_type == 'song':
-            msg = 'Processing Songs'
-        elif entity_type == 'artist':
-            msg = 'Processing Artists'
-        elif entity_type == 'label':
-            msg = 'Processing Recording Labels'
-        progress.update(message=msg)
-        entities = entities_by_type.get(entity_type)
-        textures_to_refresh = []
-        for entity in entities:
-            for entity_field in entity.keys():
-                if entity_field.startswith('thumb'):
-                    thumbnail = entity.get(entity_field)
-                    if thumbnail and thumbnail not in textures_to_refresh:
-                        textures_to_refresh.append(thumbnail)
-        for id_album in id_albums:
-            file_texture = file_views_textures_to_refresh.get(id_album)
-            if file_texture and file_texture not in textures_to_refresh:
-                textures_to_refresh.append(file_texture)
-        if textures_to_refresh:
-            textures_id = get_textures_id(textures_to_refresh)
-            if textures_id:
-                remove_textures(textures_id)
-        percentuale = (step / total_types_to_process) * 100
-        progress.update(percent=int(percentuale))
-
-    progress.close()
+    try:
+        total_types_to_process = len(entities_by_type.keys())
+        for (step, entity_type) in enumerate(entities_by_type.keys(), 1):
+            msg = ''
+            if entity_type == 'album':
+                msg = 'Processing Albums'
+            elif entity_type == 'song':
+                msg = 'Processing Songs'
+            elif entity_type == 'artist':
+                msg = 'Processing Artists'
+            elif entity_type == 'label':
+                msg = 'Processing Recording Labels'
+            progress.update(message=msg)
+            entities = entities_by_type.get(entity_type)
+            textures_to_refresh = []
+            for entity in entities:
+                for entity_field in entity.keys():
+                    if entity_field.startswith('thumb'):
+                        thumbnail = entity.get(entity_field)
+                        if thumbnail and thumbnail not in textures_to_refresh:
+                            textures_to_refresh.append(thumbnail)
+            for id_album in id_albums:
+                file_texture = file_views_textures_to_refresh.get(id_album)
+                if file_texture and file_texture not in textures_to_refresh:
+                    textures_to_refresh.append(file_texture)
+            if textures_to_refresh:
+                textures_id = get_textures_id(textures_to_refresh)
+                if textures_id:
+                    remove_textures(textures_id)
+            percentuale = (step / total_types_to_process) * 100
+            progress.update(percent=int(percentuale))
+    finally:
+        progress.close()
     scan_payload = {"jsonrpc": "2.0", "method": "AudioLibrary.Scan", "id": "1",
                     "params": {"directory": "/script.texture.refresh", "showdialogs": False}}
     xbmc.executeJSONRPC(json.dumps(scan_payload))

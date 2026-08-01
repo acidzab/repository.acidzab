@@ -174,16 +174,17 @@ def preload_new_labels_on_texture_cache(textures_results):
 
     progress = xbmcgui.DialogProgressBG()
     progress.create(addon_name, "Preloading Labels Textures")
-    total_label_to_process = len(label_logos.keys())
-    for (step, label_logo) in enumerate(label_logos.keys(), 1):
-        with xbmcvfs.File(label_logos.get(label_logo)):
-            percentuale = (step / total_label_to_process) * 100
+    try:
+        total_label_to_process = len(label_logos.keys())
+        for (step, label_logo) in enumerate(label_logos.keys(), 1):
+            with xbmcvfs.File(label_logos.get(label_logo)):
+                percentuale = (step / total_label_to_process) * 100
 
-        splitted_path = label_logo.split('/')
-        file_name = splitted_path[len(splitted_path) - 1]
-        progress.update(percent=int(percentuale), message=file_name)
-
-    progress.close()
+            splitted_path = label_logo.split('/')
+            file_name = splitted_path[len(splitted_path) - 1]
+            progress.update(percent=int(percentuale), message=file_name)
+    finally:
+        progress.close()
 
 
 def get_kodi_image_path(file_path):
@@ -253,16 +254,18 @@ def remove_labels(central_labels, textures, use_webdav):
 
     progress = xbmcgui.DialogProgressBG()
     progress.create(addon_name, "Rimuovo le case discografiche")
-    total_label_to_process = len(paths_to_remove)
+    try:
+        total_label_to_process = len(paths_to_remove)
 
-    for (step, path_to_remove) in enumerate(paths_to_remove, 1):
-        msg = f'Rimuovo {path_to_remove}'
-        log(msg)
-        xbmcvfs.delete(path_to_remove)
-        percentuale = (step / total_label_to_process) * 100
-        progress.update(percent=int(percentuale), message=msg)
-        labels_removed = True
-    progress.close()
+        for (step, path_to_remove) in enumerate(paths_to_remove, 1):
+            msg = f'Rimuovo {path_to_remove}'
+            log(msg)
+            xbmcvfs.delete(path_to_remove)
+            percentuale = (step / total_label_to_process) * 100
+            progress.update(percent=int(percentuale), message=msg)
+            labels_removed = True
+    finally:
+        progress.close()
     return labels_removed
 
 
@@ -427,73 +430,77 @@ def update_labels(central_labels, textures, albums_to_check, labels_to_check, us
     # (sarebbero le cartelle per ordine alfabetico)
     progress = xbmcgui.DialogProgressBG()
     progress.create(addon_name, "Controllo le case discografiche da aggiornare")
-    labels_to_update = {}
-    textures_to_refresh = []
-    special_texture_by_label = {}
-    log(f'Label da controllare {labels_to_check}')
-    label_dirs = get_labels_dirs(albums_to_check, labels_to_check)
-    potential_filenames = get_potential_filenames_from_labels_to_process(labels_to_check)
-    labels_to_process_by_initial_letter = get_labels_to_process_by_initial_letter(labels_to_check)
-    sorted_central_labels = []
-    if label_dirs:
-        sorted_central_labels = sorted(label_dirs)
-    labels_by_initial_letter = get_labels_by_initial_letter()
+    try:
+        labels_to_update = {}
+        textures_to_refresh = []
+        special_texture_by_label = {}
+        log(f'Label da controllare {labels_to_check}')
+        label_dirs = get_labels_dirs(albums_to_check, labels_to_check)
+        potential_filenames = get_potential_filenames_from_labels_to_process(labels_to_check)
+        labels_to_process_by_initial_letter = get_labels_to_process_by_initial_letter(labels_to_check)
+        sorted_central_labels = []
+        if label_dirs:
+            sorted_central_labels = sorted(label_dirs)
+        labels_by_initial_letter = get_labels_by_initial_letter()
 
-    for directory in sorted(labels_to_process_by_initial_letter.keys()):
-        central_directory = db_scan.encode_string(directory) if use_webdav else directory
-        central_files = central_labels.get(central_directory)
-        total_label_to_process = len(central_files)
+        for directory in sorted(labels_to_process_by_initial_letter.keys()):
+            central_directory = db_scan.encode_string(directory) if use_webdav else directory
+            central_files = central_labels.get(central_directory)
+            total_label_to_process = len(central_files)
 
-        for (step, file) in enumerate(central_files, 1):
-            central_file_path = f'{central_etichette_path + directory}/{file}'
-            directory = unquote(directory) if use_webdav else directory
-            file = unquote(file) if use_webdav else file
-            local_file_path = os.path.join(etichette_local, directory, file)
-            if not file.endswith('.xml'):
-                for potential_filename in potential_filenames:
-                    if potential_filename in file:
-                        labels_to_update[central_file_path] = local_file_path
-                        special_path = f'{etichette_local_special}{directory}/{file}'
-                        file_stem = file.split('.')[0]
-                        label_node_file_name = f'{file_stem}.xml'
-                        special_texture_by_label[label_node_file_name] = special_path
-                        textures_to_refresh.append(special_path)
-                        break
-                percentuale = (step / total_label_to_process) * 100
-                progress.update(percent=int(percentuale), message=f'Label da aggiornare {file}')
+            for (step, file) in enumerate(central_files, 1):
+                central_file_path = f'{central_etichette_path + directory}/{file}'
+                directory = unquote(directory) if use_webdav else directory
+                file = unquote(file) if use_webdav else file
+                local_file_path = os.path.join(etichette_local, directory, file)
+                if not file.endswith('.xml'):
+                    for potential_filename in potential_filenames:
+                        if potential_filename in file:
+                            labels_to_update[central_file_path] = local_file_path
+                            special_path = f'{etichette_local_special}{directory}/{file}'
+                            file_stem = file.split('.')[0]
+                            label_node_file_name = f'{file_stem}.xml'
+                            special_texture_by_label[label_node_file_name] = special_path
+                            textures_to_refresh.append(special_path)
+                            break
+                    percentuale = (step / total_label_to_process) * 100
+                    progress.update(percent=int(percentuale), message=f'Label da aggiornare {file}')
 
-    for directory in sorted_central_labels:
-        central_directory = db_scan.encode_string(directory) if use_webdav else directory
-        central_files = central_labels.get(central_directory)
-        total_label_to_process = len(central_files)
-        for (step, file) in enumerate(central_files, 1):
-            directory = unquote(directory) if use_webdav else directory
-            file = unquote(file) if use_webdav else file
-            local_file_path = os.path.join(etichette_local, directory, file)
-            if file != 'index.xml' and file.endswith('.xml'):
-                update_label_order(local_file_path, labels_by_initial_letter)
-                special_icon = special_texture_by_label.get(file)
-                if special_icon:
-                    set_icon(local_file_path, special_icon)
-                percentuale = (step / total_label_to_process) * 100
-                progress.update(percent=int(percentuale), message=f'Aggiorno {file}')
+        for directory in sorted_central_labels:
+            central_directory = db_scan.encode_string(directory) if use_webdav else directory
+            central_files = central_labels.get(central_directory)
+            total_label_to_process = len(central_files)
+            for (step, file) in enumerate(central_files, 1):
+                directory = unquote(directory) if use_webdav else directory
+                file = unquote(file) if use_webdav else file
+                local_file_path = os.path.join(etichette_local, directory, file)
+                if file != 'index.xml' and file.endswith('.xml'):
+                    update_label_order(local_file_path, labels_by_initial_letter)
+                    special_icon = special_texture_by_label.get(file)
+                    if special_icon:
+                        set_icon(local_file_path, special_icon)
+                    percentuale = (step / total_label_to_process) * 100
+                    progress.update(percent=int(percentuale), message=f'Aggiorno {file}')
 
-    progress.close()
+    finally:
+        progress.close()
 
     if labels_to_update:
         progress = xbmcgui.DialogProgressBG()
         progress.create(addon_name, "Updating Labels")
-        total_label_to_process = len(labels_to_update.keys())
-        for (step, central_path) in enumerate(labels_to_update.keys(), 1):
-            local_file_path = labels_to_update.get(central_path)
-            removed_label = xbmcvfs.delete(local_file_path)
-            copied_label = xbmcvfs.copy(central_path, local_file_path)
-            updated_label = removed_label and copied_label
-            if updated_label:
-                log(f'Aggiornato {local_file_path}')
-                percentuale = (step / total_label_to_process) * 100
-                progress.update(percent=int(percentuale), message=f'Aggiornato {get_label_name(local_file_path)}')
-        progress.close()
+        try:
+            total_label_to_process = len(labels_to_update.keys())
+            for (step, central_path) in enumerate(labels_to_update.keys(), 1):
+                local_file_path = labels_to_update.get(central_path)
+                removed_label = xbmcvfs.delete(local_file_path)
+                copied_label = xbmcvfs.copy(central_path, local_file_path)
+                updated_label = removed_label and copied_label
+                if updated_label:
+                    log(f'Aggiornato {local_file_path}')
+                    percentuale = (step / total_label_to_process) * 100
+                    progress.update(percent=int(percentuale), message=f'Aggiornato {get_label_name(local_file_path)}')
+        finally:
+            progress.close()
 
         if textures_to_refresh:
             cleanup_textures(textures, textures_to_refresh)
@@ -572,18 +579,19 @@ def preload_labels_on_local_kodi():
 
     progress = xbmcgui.DialogProgressBG()
     progress.create(addon_name, "Sto caricando le case discografiche")
-    total_label_to_process = len(labels_to_transfer.keys())
-    for (step, label) in enumerate(labels_to_transfer.keys(), 1):
-        # in caso di libreria webDAV controllo che il file decodificato sia già presente
-        local_label = unquote(label) if use_webdav else label
-        destination_path = os.path.join(etichette_local, local_label)
-        if not xbmcvfs.exists(destination_path) and not destination_path.endswith('.db'):
-            if xbmcvfs.copy(labels_to_transfer.get(label), destination_path):
-                log(f'Copiato da {labels_to_transfer.get(label)} a {destination_path}')
-                percentuale = (step / total_label_to_process) * 100
-                progress.update(percent=int(percentuale), message=label)
-
-    progress.close()
+    try:
+        total_label_to_process = len(labels_to_transfer.keys())
+        for (step, label) in enumerate(labels_to_transfer.keys(), 1):
+            # in caso di libreria webDAV controllo che il file decodificato sia già presente
+            local_label = unquote(label) if use_webdav else label
+            destination_path = os.path.join(etichette_local, local_label)
+            if not xbmcvfs.exists(destination_path) and not destination_path.endswith('.db'):
+                if xbmcvfs.copy(labels_to_transfer.get(label), destination_path):
+                    log(f'Copiato da {labels_to_transfer.get(label)} a {destination_path}')
+                    percentuale = (step / total_label_to_process) * 100
+                    progress.update(percent=int(percentuale), message=label)
+    finally:
+        progress.close()
 
     remove_labels(central_labels, textures, use_webdav)
     paths_from_params = db_scan.get_paths_from_params()
@@ -598,12 +606,14 @@ def preload_labels_on_local_kodi():
         update_labels(central_labels, textures, albums_to_check, labels_to_check, use_webdav)
         if labels_to_check:
             progress.create(addon_name, "Aggiorno la visualizzazione delle label")
-            total_label_to_process = len(labels_to_check)
-            for (step, label) in enumerate(labels_to_check, 1):
-                force_confluence_wall_view_for_labels(label)
-                percentuale = (step / total_label_to_process) * 100
-                progress.update(percent=int(percentuale), message=label)
-            progress.close()
+            try:
+                total_label_to_process = len(labels_to_check)
+                for (step, label) in enumerate(labels_to_check, 1):
+                    force_confluence_wall_view_for_labels(label)
+                    percentuale = (step / total_label_to_process) * 100
+                    progress.update(percent=int(percentuale), message=label)
+            finally:
+                progress.close()
     preload_new_labels_on_texture_cache(textures)
     builtin_cmd = f'NotifyAll({addon_id}, OnLabelsPreloaded)'
     xbmc.executebuiltin(builtin_cmd)

@@ -217,17 +217,21 @@ def convert_to_thumb_view(paths_to_convert, use_webdav, id_albums, exec_mode):
         textures = get_textures()
         total_dirs_to_process = len(paths_to_convert)
         progress.create(addon_name, message='Imposto la vista di default per i file')
-        exsisting_paths = get_view_paths(paths_to_convert)
-        for (step, directory) in enumerate(paths_to_convert, 1):
-            force_confluence_wall_view_for_files(directory, exsisting_paths)
-            percentuale = (step / total_dirs_to_process) * 100
-            progress.update(message=directory, percent=int(percentuale))
-        progress.close()
+        try:
+            exsisting_paths = get_view_paths(paths_to_convert)
+            for (step, directory) in enumerate(paths_to_convert, 1):
+                force_confluence_wall_view_for_files(directory, exsisting_paths)
+                percentuale = (step / total_dirs_to_process) * 100
+                progress.update(message=directory, percent=int(percentuale))
+        finally:
+            progress.close()
         progress.create(addon_name, message='Precarico le miniature sui file')
-        paths_to_cache = get_thumbs_to_cache(id_albums, textures, use_webdav, exec_mode)
-        cache_thumbs(paths_to_cache, progress)
-        clean_texture_path()
-        progress.close()
+        try:
+            paths_to_cache = get_thumbs_to_cache(id_albums, textures, use_webdav, exec_mode)
+            cache_thumbs(paths_to_cache, progress)
+            clean_texture_path()
+        finally:
+            progress.close()
 
 
 def decode_url(path):
@@ -367,12 +371,14 @@ def convert_playlists_to_info_media_view():
     playlists_paths = [f'special://profile/playlists/music/{playlist}/' for playlist in playlists]
     exsisting_playlists = get_view_paths(playlists_paths)
     progress.create(addon_name, message='Imposto la vista di default per le playlist')
-    for (step, playlist) in enumerate(playlists, 1):
-        playlist_path = f'special://profile/playlists/music/{playlist}/'
-        add_new_view_record(playlist_path, 66042, 22, exsisting_playlists)
-        percentuale = (step / len(playlists)) * 100
-        progress.update(message=playlist, percent=int(percentuale))
-    progress.close()
+    try:
+        for (step, playlist) in enumerate(playlists, 1):
+            playlist_path = f'special://profile/playlists/music/{playlist}/'
+            add_new_view_record(playlist_path, 66042, 22, exsisting_playlists)
+            percentuale = (step / len(playlists)) * 100
+            progress.update(message=playlist, percent=int(percentuale))
+    finally:
+        progress.close()
 
 
 def switch_to_thumb_view_for_files():
