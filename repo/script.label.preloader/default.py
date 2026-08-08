@@ -25,6 +25,7 @@ kodi_label_default_icon = 'DefaultMusicAlbums.png'
 smb_safe_chars = '()!'
 non_alphabetical_folder = 'NSP'
 
+
 def log(msg):
     xbmc.log(str(msg), xbmc.LOGDEBUG)
 
@@ -514,8 +515,7 @@ def force_confluence_wall_view(path):
     query_check = "SELECT * FROM VIEW vista WHERE vista.path = {}"
     query_check = query_check.format(f'\'{path}\'')
     check_res = view_mode_db_cursor.execute(query_check).fetchall()
-    skin_dir = xbmc.getSkinDir()
-    if not check_res and 'skin.confluence' in skin_dir:
+    if not check_res:
         # inserisco il record sul db delle view mode
         insert_query = "INSERT INTO view (window, path, viewMode, sortMethod, sortOrder, sortAttributes, skin) VALUES (?,?,?,?,?,?,?)"
         insert_values = (10502, path, 66036, 1, 1, 0, 'skin.confluence',)
