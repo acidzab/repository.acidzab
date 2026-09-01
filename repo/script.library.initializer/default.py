@@ -64,7 +64,7 @@ def get_paths_for_init(db_params):
             SELECT strPath
             FROM ranked
             ORDER BY priority, strPath'''
-    music_db_name = db_scan.get_latest_kodi_dbs().get('MyMusic')
+    music_db_name = db_scan.get_music_db_name()
     host = db_params.get('host')
     username = db_params.get('user')
     password = db_params.get('pass')

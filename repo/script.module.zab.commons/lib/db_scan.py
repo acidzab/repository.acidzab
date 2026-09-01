@@ -124,22 +124,14 @@ def get_latest_kodi_dbs():
 
     :return: dict con {Db: Nome db aggiornato}
     """
-    # prefissi noti dei database Kodi
-    prefixes = ["Addons", "Epg", "MyMusic", "MyVideos", "Textures", "TV", "ViewModes"]
     results = {}
-
-    for prefix in prefixes:
-        db_files = [f for f in os.listdir(kodi_local_db_path) if f.startswith(prefix) and f.endswith(".db")]
-        if not db_files:
-            continue
-
-        # estrai numero finale e ordina
-        db_files.sort(
-            key=lambda x: int(re.search(r"(\d+)\.db$", x).group(1)),
-            reverse=True
-        )
-        results[prefix] = db_files[0].replace(".db", "")
-
+    results['addons'] = xbmc.getDatabaseName('addons')
+    results['epg'] = xbmc.getDatabaseName('epg')
+    results['music'] = xbmc.getDatabaseName('music')
+    results['textures'] = xbmc.getDatabaseName('textures')
+    results['tv'] = xbmc.getDatabaseName('tv')
+    results['videos'] = xbmc.getDatabaseName('videos')
+    results['viewmodes'] = xbmc.getDatabaseName('viewmodes')
     return results
 
 
@@ -151,12 +143,24 @@ def get_db_path(db_name):
 
 
 def get_music_db_path():
-    return get_db_path('MyMusic')
+    return get_db_path('music')
 
 
 def get_textures_db_path():
-    return get_db_path('Textures')
+    return get_db_path('textures')
 
 
 def get_view_modes_db_path():
-    return get_db_path('ViewModes')
+    return get_db_path('viewmodes')
+
+
+def get_music_db_name():
+    return get_latest_kodi_dbs().get('music')
+
+
+def get_textures_db_name():
+    return get_latest_kodi_dbs().get('textures')
+
+
+def get_view_modes_db_name():
+    return get_latest_kodi_dbs().get('viewmodes')

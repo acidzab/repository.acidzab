@@ -829,7 +829,7 @@ def align_media_to_central_db(paths, local_paths, exec_mode, db_params):
     progress = xbmcgui.DialogProgressBG()
     try:
         media_by_id = get_media_details_from_directory(paths, local_paths, db_params)
-        music_db_name = db_scan.get_latest_kodi_dbs().get('MyMusic')
+        music_db_name = db_scan.get_music_db_name()
         albums_id_central = []
         albums_id_local = []
         songs_id_central = []

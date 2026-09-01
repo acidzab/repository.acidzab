@@ -222,8 +222,7 @@ def get_sources(db_params):
 
 def init_music_database():
     db_params = db_scan.get_db_params()
-    db_versions = db_scan.get_latest_kodi_dbs()
-    music_db_name = db_versions.get('MyMusic')
+    music_db_name = db_scan.get_music_db_name()
     paths_to_scan = sync_paths_to_scan(db_params, music_db_name)
     params = '?mode=init'
     if paths_to_scan and not xbmc.getCondVisibility('Library.IsScanningMusic'):
@@ -412,7 +411,7 @@ def sync_library():
     log(addon_name)
     db_params = db_scan.get_db_params()
     exec_mode = 'scan'
-    music_db_name = db_scan.get_latest_kodi_dbs().get('MyMusic')
+    music_db_name = db_scan.get_music_db_name()
     current_scans = sync_paths_to_scan(db_params, music_db_name)
     if current_scans and not xbmc.getCondVisibility('Library.IsScanningMusic'):
         query_string = ';'.join([f"path={path}" for path in current_scans if path])
