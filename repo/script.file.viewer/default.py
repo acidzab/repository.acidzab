@@ -26,6 +26,11 @@ def log(msg):
     xbmc.log(str(msg), xbmc.LOGDEBUG)
 
 
+def natural_key(s):
+    """Chiave di ordinamento naturale: 'thumb2' < 'thumb10'"""
+    return [int(t) if t.isdigit() else t.lower() for t in re.split(r'(\d+)', s)]
+
+
 def get_sources():
     json_payload = {
         "jsonrpc": "2.0",
@@ -211,10 +216,9 @@ def clean_texture_path():
     texture_db.close()
 
 
-def convert_to_thumb_view(paths_to_convert, use_webdav, id_albums, exec_mode):
+def convert_to_thumb_view(paths_to_convert, use_webdav, id_albums, exec_mode, sources):
     if paths_to_convert:
         progress = xbmcgui.DialogProgressBG()
-        textures = get_textures()
         total_dirs_to_process = len(paths_to_convert)
         progress.create(addon_name, message='Imposto la vista di default per i file')
         try:
@@ -227,52 +231,60 @@ def convert_to_thumb_view(paths_to_convert, use_webdav, id_albums, exec_mode):
             progress.close()
         progress.create(addon_name, message='Precarico le miniature sui file')
         try:
-            paths_to_cache = get_thumbs_to_cache(id_albums, textures, use_webdav, exec_mode)
+            paths_by_id_album = get_album_paths_by_id(id_albums, exec_mode == 'init')
+            paths_to_cache = get_thumbs_to_cache(id_albums, exec_mode, paths_by_id_album, use_webdav, sources)
             cache_thumbs(paths_to_cache, progress)
             clean_texture_path()
         finally:
             progress.close()
 
 
-def decode_url(path):
-    return unquote(path)
-
-
-def get_kodi_image_path(file_path):
+def get_kodi_image_path(art_url):
     # decodifico il file path con il path image per Kodi per triggerare il job di cache
     # Kodi goes lowercase and doesn't encode some chars
-    texture_url = 'image://music@{0}/'.format(quote(file_path, '()!'))
+    texture_url = 'image://{0}/'.format(quote(art_url, '()!'))
     texture_url = re.sub(r'%[0-9A-F]{2}', lambda mo: mo.group().lower(), texture_url)
     # Sostituisci manualmente il carattere `~` con la sua codifica
     texture_url = texture_url.replace('~', '%7e')
     return texture_url
 
 
-# ottengo le potenziali texture usate come thumbnail quando si consultano le cartelle dalla vista per sorgenti (File su Kodi)
-def get_thumbs_to_cache(id_albums, textures, use_webdav, exec_mode):
+def get_albums_by_ids(id_albums):
+    album_details_requests = []
+    albums = []
+    if id_albums:
+        for (id_rpc, id_album) in enumerate(id_albums, 1):
+            json_album_detail_payload = {"jsonrpc": "2.0", "method": "AudioLibrary.GetAlbumDetails", "id": id_rpc,
+                                         "params": {"albumid": id_album,
+                                                    "properties": ["art", "albumlabel", "thumbnail"]}}
+            if json_album_detail_payload not in album_details_requests:
+                album_details_requests.append(json_album_detail_payload)
+        json_result = xbmc.executeJSONRPC(json.dumps(album_details_requests))
+        json_result = json.loads(json_result)
+        for single_result in json_result:
+            result = single_result.get('result')
+            if result:
+                album_details = result.get('albumdetails')
+                if album_details and album_details not in albums:
+                    albums.append(album_details)
+    return albums
+
+
+# ottengo gli art album da esporre quando si consultano le cartelle dalla vista per sorgenti (File su Kodi)
+def get_thumbs_to_cache(id_albums, exec_mode,
+                        paths_by_id_album, use_webdav, sources):
     thumbs_to_cache = {}
     translated_path = db_scan.get_music_db_path()
     music_db = sqlite3.connect(translated_path)
-    music_db.create_function('decode', 1, decode_url, deterministic=True)
     music_db.set_trace_callback(log)
     music_db_cursor = music_db.cursor()
     query = '''
-            WITH decoded AS
-                     (SELECT strPath,
-                             strFilename,
-                             decode(strFilename) AS decoded_filename,
-                             idSong,
-                             idAlbum
-                      FROM songview
-                      WHERE idAlbum IN (%s)),
-                 ranked AS
-                     (SELECT strPath || strFilename AS full_path,
-                             ROW_NUMBER()              OVER (PARTITION BY strPath
-                                         ORDER BY decoded_filename COLLATE NOCASE, idSong) AS row_num
-                      FROM decoded)
-            SELECT full_path
-            FROM ranked
-            WHERE row_num = 1'''
+            SELECT album.idAlbum, art.type AS artType, art.url
+            FROM art
+                     JOIN album on album.idAlbum = art.media_id
+            WHERE art.media_id IN (%s)
+              AND art.media_type = 'album'
+            '''
     results = []
     if exec_mode == 'init':
         id_albums_subquery = 'SELECT idAlbum FROM album'
@@ -285,16 +297,97 @@ def get_thumbs_to_cache(id_albums, textures, use_webdav, exec_mode):
     music_db_cursor.close()
     music_db.close()
     if results:
-        for (full_path,) in results:
-            encoded_image = get_kodi_image_path(full_path)
-            if encoded_image not in textures:
-                folder, file = os.path.split(full_path)
-                parent_folder = os.path.basename(folder)
-                message = f'{parent_folder}/{file}'
-                message = unquote(message) if use_webdav else message
-                thumbs_to_cache[encoded_image] = (message, f'{full_path.rsplit('/', 1)[0]}/')
-
+        arts_by_id_album = {}
+        for (idAlbum, artType, url) in results:
+            arts = arts_by_id_album.get(idAlbum)
+            if not arts:
+                arts = {}
+            arts[artType] = url
+            arts_by_id_album[idAlbum] = arts
+        for id_album in arts_by_id_album.keys():
+            paths = paths_by_id_album.get(id_album)
+            arts = arts_by_id_album.get(id_album)
+            art_types = [art_type for art_type in arts.keys()]
+            sorted_art_types = sorted(art_types, key=natural_key)
+            common_path = get_album_common_path(paths, sources)
+            paths_to_check = []
+            paths_to_check.append(common_path)
+            if common_path not in paths:
+                paths_to_check.extend(paths)
+            for (index, path) in enumerate(paths_to_check):
+                """
+                nel caso di una struttura malformata di un album (più cartelle degli artwork previsti)
+                si va in fallback sul thumb principale
+                """
+                if index > len(sorted_art_types):
+                    art_type = 'thumb'
+                else:
+                    art_type = sorted_art_types[index]
+                url = arts.get(art_type)
+                encoded_image = get_kodi_image_path(url)
+                message = f'{path}' if not use_webdav else f'{unquote(path)}'
+                thumbs_to_cache[encoded_image] = (message, path)
     return thumbs_to_cache
+
+
+def get_album_common_path(song_paths, sources):
+    if not song_paths:
+        return None
+
+    common_prefix = os.path.commonprefix(song_paths)
+
+    # commonprefix può tagliare a metà un nome, tronchiamo all'ultimo slash
+    if '/' in common_prefix:
+        common_prefix = common_prefix[:common_prefix.rfind('/') + 1]
+    else:
+        return None
+
+    if any(common_prefix.startswith(source) and common_prefix != source for source in sources):
+        return common_prefix
+
+    return None
+
+
+def get_album_paths_by_id(id_albums, fetch_all_albums):
+    music_db_path = db_scan.get_music_db_path()
+    query = '''
+            SELECT DISTINCT song.idAlbum,
+                            strPath,
+                            song.idPath
+            FROM song
+                     JOIN path ON song.idPath = path.idPath
+            WHERE song.idAlbum IN (%s)
+              AND (SELECT COUNT(DISTINCT (idAlbum))
+                   FROM song AS song2
+                   WHERE idPath = song.idPath) = 1
+            ORDER BY strPath ASC'''
+    id_albums_subquery = 'SELECT idAlbum FROM album'
+    query_results = []
+    music_db = sqlite3.connect(music_db_path)
+    music_db.row_factory = sqlite3.Row
+    music_db.set_trace_callback(log)
+    music_db_cursor = music_db.cursor()
+    if fetch_all_albums:
+        music_db_cursor.execute(query % id_albums_subquery)
+        query_results.extend(music_db_cursor.fetchall())
+    elif id_albums:
+        chunks = [id_albums[i:i + 999] for i in range(0, len(id_albums), 999)]
+        for chunk in chunks:
+            placeholders = ','.join(['?'] * len(chunk))
+            music_db_cursor.execute(query % placeholders, chunk)
+            query_results.extend(music_db_cursor.fetchall())
+    music_db_cursor.close()
+    music_db.close()
+    paths_by_album = {}
+    if query_results:
+        for result in query_results:
+            paths = paths_by_album.get(result['idAlbum'])
+            if not paths:
+                paths = list()
+            path = result['strPath']
+            paths.append(path)
+            paths_by_album[result['idAlbum']] = paths
+    return paths_by_album
 
 
 def _cache_single_thumb(path_to_cache, dir_path, img_vfs_url):
@@ -336,35 +429,6 @@ def cache_thumbs(paths_to_cache, progress_bar):
                 progress_bar.update(message=message, percent=percent)
 
 
-def get_textures():
-    texture_payload = {
-        "jsonrpc": "2.0",
-        "method": "Textures.GetTextures",
-        "id": "1",
-        "params": {
-            "properties": [
-                "url"
-            ],
-            "filter": {
-                "and": [
-                    {
-                        "field": "url",
-                        "operator": "contains",
-                        "value": "music@"
-                    }
-                ]
-            }
-        }
-    }
-    json_result = json.loads(xbmc.executeJSONRPC(json.dumps(texture_payload, ensure_ascii=False))).get('result')
-    textures = []
-    if json_result:
-        for texture in json_result.get('textures'):
-            if texture.get('url') not in textures:
-                textures.append(texture.get('url'))
-    return textures
-
-
 def convert_playlists_to_info_media_view():
     progress = xbmcgui.DialogProgressBG()
     playlists = xbmcvfs.listdir(os.path.join('special://profile/playlists/music'))[1]
@@ -401,7 +465,7 @@ def switch_to_thumb_view_for_files():
         if source_into_album:
             albums_by_source[source_path] = source_into_album
     paths_to_convert = get_paths_to_convert(albums_by_source)
-    convert_to_thumb_view(paths_to_convert, use_webdav, id_albums, exec_mode)
+    convert_to_thumb_view(paths_to_convert, use_webdav, id_albums, exec_mode, sources_paths)
     convert_playlists_to_info_media_view()
     builtin_cmd = f'NotifyAll({addon_id}, OnViewSwitched)'
     xbmc.executebuiltin(builtin_cmd)
