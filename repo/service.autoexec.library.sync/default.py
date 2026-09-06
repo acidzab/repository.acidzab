@@ -12,6 +12,8 @@ import xbmcgui
 import xbmcvfs
 
 addon_name = xbmcaddon.Addon().getAddonInfo('name')
+sqlite_params_limit = 999
+mariadb_params_limit = 1000
 
 
 class ScanMonitor(xbmc.Monitor):
@@ -266,7 +268,8 @@ def get_album_path_by_id(id_albums, use_central, db_params, music_db_name, fetch
                     log(central_cursor.mogrify(query % id_albums_subquery))
                     query_results.extend(central_cursor.fetchall())
                 elif id_albums:
-                    chunks = [id_albums[i:i + 1000] for i in range(0, len(id_albums), 1000)]
+                    chunks = [id_albums[i:i + mariadb_params_limit] for i in
+                              range(0, len(id_albums), mariadb_params_limit)]
                     for chunk in chunks:
                         placeholders = ','.join(['%s'] * len(chunk))
                         central_cursor.execute(query % placeholders, chunk)
@@ -281,7 +284,7 @@ def get_album_path_by_id(id_albums, use_central, db_params, music_db_name, fetch
             music_db_cursor.execute(query % id_albums_subquery)
             query_results.extend(music_db_cursor.fetchall())
         elif id_albums:
-            chunks = [id_albums[i:i + 999] for i in range(0, len(id_albums), 999)]
+            chunks = [id_albums[i:i + sqlite_params_limit] for i in range(0, len(id_albums), sqlite_params_limit)]
             for chunk in chunks:
                 placeholders = ','.join(['?'] * len(chunk))
                 music_db_cursor.execute(query % placeholders, chunk)
@@ -398,6 +401,8 @@ def sync_paths_to_scan(db_params, music_db_name):
     paths_to_scan = set()
     paths_to_scan.update(albums_to_sync)
     paths_to_scan.update(albums_to_align)
+    local_paths_to_clean = get_paths_to_clean_on_update(paths_to_scan, db_params, central_paths)
+    paths_to_scan.update(local_paths_to_clean)
     return paths_to_scan
 
 
@@ -405,6 +410,34 @@ def emit_final_dialog(addon_name):
     dialog = xbmcgui.Dialog()
     icon_path = xbmcaddon.Addon().getAddonInfo('path') + '/' + 'icon.png'
     dialog.notification(addon_name, 'Sincronizzazione completata', icon_path)
+
+
+def get_paths_to_clean_on_update(paths, db_params, central_paths):
+    use_webdav = db_params.get('sourcetype') == 'webdav'
+    music_db_path = db_scan.get_music_db_path()
+    query = '''
+            SELECT path.strPath
+            FROM path
+            WHERE %s
+            '''
+    local_results = []
+    paths_to_check = [db_scan.convert_from_smb_to_davs(path) if use_webdav else path for path in paths]
+    music_db = sqlite3.connect(music_db_path)
+    music_db.set_trace_callback(log)
+    music_db_cursor = music_db.cursor()
+    chunks = [paths_to_check[i:i + sqlite_params_limit] for i in range(0, len(paths_to_check), sqlite_params_limit)]
+    for chunk in chunks:
+        placeholders = ' OR '.join(['path.strPath LIKE ?||\'%\''] * len(chunk))
+        music_db_cursor.execute(query % placeholders, chunk)
+        local_results.extend(music_db_cursor.fetchall())
+    music_db_cursor.close()
+    music_db.close()
+    local_paths = {db_scan.convert_from_davs_to_smb(result['strPath']) if use_webdav else result['strPath'] for result
+                   in local_results}
+    paths_to_clean = local_paths - central_paths
+    message = f'I seguenti path sono da rimuovere nel db locale {paths_to_clean}'
+    log(message)
+    return list(paths_to_clean)
 
 
 def sync_library():
