@@ -102,6 +102,35 @@ def get_ids_to_refresh(paths_from_params, use_webdav):
     return id_albums
 
 
+def get_textures():
+    texture_payload = {
+        "jsonrpc": "2.0",
+        "method": "Textures.GetTextures",
+        "id": "1",
+        "params": {
+            "properties": [
+                "url"
+            ],
+            "filter": {
+                "and": [
+                    {
+                        "field": "url",
+                        "operator": "contains",
+                        "value": "kodiarts"
+                    }
+                ]
+            }
+        }
+    }
+    json_result = json.loads(xbmc.executeJSONRPC(json.dumps(texture_payload, ensure_ascii=False))).get('result')
+    textures = []
+    if json_result:
+        for texture in json_result.get('textures'):
+            if texture.get('url') not in textures:
+                textures.append(texture.get('url'))
+    return textures
+
+
 def get_scanned_albums_paths(id_albums, exec_mode):
     results = []
     query = '''
@@ -170,6 +199,18 @@ def get_paths_to_convert(albums_by_source):
     return paths_to_convert
 
 
+def get_texture_paths():
+    texture_db_path = db_scan.get_textures_db_path()
+    texture_db = sqlite3.connect(texture_db_path)
+    texture_db.set_trace_callback(log)
+    texture_db_cursor = texture_db.cursor()
+    query = "select url from path where type = 'thumb'"
+    results = texture_db_cursor.execute(query)
+    texture_db_cursor.close()
+    texture_db.close()
+    return [url for (url,) in results]
+
+
 def update_texture_path(dir_path, img_vfs_url):
     texture_db_path = db_scan.get_textures_db_path()
     texture_db = sqlite3.connect(texture_db_path)
@@ -178,12 +219,11 @@ def update_texture_path(dir_path, img_vfs_url):
     find_id_query = "select id, texture from path where url = ? and type = 'thumb'"
     update_query = "update path set texture= ? where id = ?"
     texture_path_result = texture_db_cursor.execute(find_id_query, (dir_path,)).fetchone()
-    texture_url = texture_path_result[1]
     if not texture_path_result:
         insert_query = "insert into path (url, type, texture) values(?, ?, ?)"
         texture_db_cursor.execute(insert_query, (dir_path, 'thumb', img_vfs_url))
         texture_db.commit()
-    elif texture_url != img_vfs_url:
+    elif texture_path_result[1] != img_vfs_url:
         id_texture_path = texture_path_result[0]
         texture_db_cursor.execute(update_query, (img_vfs_url, id_texture_path,))
         texture_db.commit()
@@ -219,6 +259,8 @@ def clean_texture_path():
 
 def convert_to_thumb_view(paths_to_convert, use_webdav, id_albums, exec_mode, sources):
     if paths_to_convert:
+        textures = get_textures()
+        texture_paths = get_texture_paths()
         progress = xbmcgui.DialogProgressBG()
         total_dirs_to_process = len(paths_to_convert)
         progress.create(addon_name, message='Imposto la vista di default per i file')
@@ -233,7 +275,8 @@ def convert_to_thumb_view(paths_to_convert, use_webdav, id_albums, exec_mode, so
         progress.create(addon_name, message='Precarico le miniature sui file')
         try:
             paths_by_id_album = get_album_paths_by_id(id_albums, exec_mode == 'init')
-            paths_to_cache = get_thumbs_to_cache(id_albums, exec_mode, paths_by_id_album, use_webdav, sources)
+            paths_to_cache = get_thumbs_to_cache(id_albums, exec_mode, paths_by_id_album, use_webdav, sources, textures,
+                                                 texture_paths)
             cache_thumbs(paths_to_cache, progress)
             clean_texture_path()
         finally:
@@ -252,7 +295,8 @@ def get_kodi_image_path(art_url):
 
 # ottengo gli art album da esporre quando si consultano le cartelle dalla vista per sorgenti (File su Kodi)
 def get_thumbs_to_cache(id_albums, exec_mode,
-                        paths_by_id_album, use_webdav, sources):
+                        paths_by_id_album, use_webdav, sources,
+                        textures, texture_paths):
     thumbs_to_cache = {}
     translated_path = db_scan.get_music_db_path()
     music_db = sqlite3.connect(translated_path)
@@ -305,8 +349,9 @@ def get_thumbs_to_cache(id_albums, exec_mode,
                     art_type = sorted_art_types[index]
                 url = arts.get(art_type)
                 encoded_image = get_kodi_image_path(url)
-                message = f'{path}' if not use_webdav else f'{unquote(path)}'
-                thumbs_to_cache[encoded_image] = (message, path)
+                if encoded_image not in textures or path not in texture_paths:
+                    message = f'{path}' if not use_webdav else f'{unquote(path)}'
+                    thumbs_to_cache[encoded_image] = (message, path)
     return thumbs_to_cache
 
 
