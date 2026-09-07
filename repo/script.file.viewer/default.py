@@ -205,7 +205,7 @@ def get_texture_paths():
     texture_db.set_trace_callback(log)
     texture_db_cursor = texture_db.cursor()
     query = "select url from path where type = 'thumb'"
-    results = texture_db_cursor.execute(query)
+    results = texture_db_cursor.execute(query).fetchall()
     texture_db_cursor.close()
     texture_db.close()
     return [url for (url,) in results]
