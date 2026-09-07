@@ -59,56 +59,6 @@ def encode_to_kodi_image_url(art_url, img_url_prefix):
     return encoded_url
 
 
-def decode_url(path):
-    return unquote(path)
-
-
-# ottengo le potenziali texture usate come thumbnail quando si consultano le cartelle dalla vista per sorgenti (File su Kodi)
-def get_files_thumbs(use_webdav):
-    query = '''
-        WITH file_info AS
-          (SELECT strPath,
-                  strFilename,
-                  idSong
-           FROM songview),
-             ranked AS
-          (SELECT strPath || strFilename AS full_path,
-                  ROW_NUMBER() OVER (PARTITION BY strPath
-                                     ORDER BY strFilename COLLATE NOCASE, idSong) AS row_num
-           FROM file_info)
-        SELECT full_path
-        FROM ranked
-        WHERE row_num = 1'''
-    if use_webdav:
-        query = '''
-            WITH file_info AS
-              (SELECT strPath,
-                      strFilename,
-                      decode(strFilename) AS decoded_filename,
-                      idSong
-               FROM songview),
-                 ranked AS
-              (SELECT strPath || strFilename AS full_path,
-                      ROW_NUMBER() OVER (PARTITION BY strPath
-                                         ORDER BY decoded_filename COLLATE NOCASE, idSong) AS row_num
-               FROM file_info)
-            SELECT full_path
-            FROM ranked
-            WHERE row_num = 1'''
-    translated_path = db_scan.get_music_db_path()
-    music_db = sqlite3.connect(translated_path)
-    if use_webdav:
-        music_db.create_function('decode', 1, decode_url, deterministic=True)
-    music_db.set_trace_callback(log)
-    music_db_cursor = music_db.cursor()
-    first_tracks_res = music_db_cursor.execute(query)
-    results = first_tracks_res.fetchall()
-    music_db_cursor.close()
-    music_db.close()
-    file_thumbs = [encode_to_kodi_image_url(full_path, 'image://music@{0}/') for (full_path,) in results]
-    return file_thumbs
-
-
 def get_arts():
     translated_path = db_scan.get_music_db_path()
     music_db = sqlite3.connect(translated_path)
@@ -149,12 +99,9 @@ def compact_db():
 
 
 def clean_texture_cache():
-    db_params = db_scan.get_db_params()
-    use_webdav = db_params.get('sourcetype') == 'webdav'
     textures = get_textures()
     artworks = set(get_arts())
-    file_thumbs = set(get_files_thumbs(use_webdav))
-    id_textures_to_remove = [texture.get('textureid') for texture in textures if texture.get('url') not in artworks and texture.get('url') not in file_thumbs]
+    id_textures_to_remove = [texture.get('textureid') for texture in textures if texture.get('url') not in artworks]
     if id_textures_to_remove:
         remove_textures(id_textures_to_remove)
         compact_db()
