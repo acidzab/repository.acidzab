@@ -423,6 +423,7 @@ def get_paths_to_clean_on_update(paths, db_params, central_paths):
     local_results = []
     paths_to_check = [db_scan.convert_from_smb_to_davs(path) if use_webdav else path for path in paths]
     music_db = sqlite3.connect(music_db_path)
+    music_db.row_factory = sqlite3.Row
     music_db.set_trace_callback(log)
     music_db_cursor = music_db.cursor()
     chunks = [paths_to_check[i:i + sqlite_params_limit] for i in range(0, len(paths_to_check), sqlite_params_limit)]
