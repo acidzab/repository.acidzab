@@ -227,46 +227,6 @@ def get_kodi_image_path(file_path):
     return texture_url
 
 
-# ottengo le potenziali texture usate come thumbnail quando si consultano le cartelle dalla vista per sorgenti (File su Kodi)
-def get_thumbs_to_refresh_by_id_album(id_albums, textures):
-    thumbs_to_refresh = {}
-    translated_path = db_scan.get_music_db_path()
-    music_db = sqlite3.connect(translated_path)
-    music_db.create_function('decode', 1, decode_url, deterministic=True)
-    music_db.set_trace_callback(log)
-    music_db_cursor = music_db.cursor()
-    chunks = [id_albums[i:i + 999] for i in range(0, len(id_albums), 999)]
-    for chunk in chunks:
-        placeholders = ','.join(['?'] * len(chunk))
-        query = '''
-            WITH decoded AS
-              (SELECT strPath,
-                      strFilename,
-                      decode(strFilename) AS decoded_filename,
-                      idSong,
-                      idAlbum
-               FROM songview
-               WHERE idAlbum IN (%s)),
-                 ranked AS
-              (SELECT idAlbum, strPath || strFilename AS full_path,
-                      ROW_NUMBER() OVER (PARTITION BY strPath
-                                         ORDER BY decoded_filename COLLATE NOCASE, idSong) AS row_num
-               FROM decoded)
-            SELECT idAlbum, full_path
-            FROM ranked
-            WHERE row_num = 1''' % placeholders
-        first_tracks_res = music_db_cursor.execute(query, chunk)
-        results = first_tracks_res.fetchall()
-        for (idAlbum, full_path) in results:
-            encoded_image = get_kodi_image_path(full_path)
-            if encoded_image in textures:
-                thumbs_to_refresh[idAlbum] = encoded_image
-
-    music_db_cursor.close()
-    music_db.close()
-    return thumbs_to_refresh
-
-
 def get_albums_by_ids(id_albums):
     album_details_requests = []
     albums = []
@@ -402,7 +362,6 @@ def refresh_textures(paths, exec_mode, paths_from_params):
     for added_path in paths:
         get_id_albums_by_paths(id_albums, added_path)
     entities_by_type = build_entity_map(textures, id_albums)
-    file_views_textures_to_refresh = get_thumbs_to_refresh_by_id_album(id_albums, textures)
 
     progress = xbmcgui.DialogProgressBG()
     progress.create(addon_name)
@@ -427,10 +386,6 @@ def refresh_textures(paths, exec_mode, paths_from_params):
                         thumbnail = entity.get(entity_field)
                         if thumbnail and thumbnail not in textures_to_refresh:
                             textures_to_refresh.append(thumbnail)
-            for id_album in id_albums:
-                file_texture = file_views_textures_to_refresh.get(id_album)
-                if file_texture and file_texture not in textures_to_refresh:
-                    textures_to_refresh.append(file_texture)
             if textures_to_refresh:
                 textures_id = get_textures_id(textures_to_refresh)
                 if textures_id:
