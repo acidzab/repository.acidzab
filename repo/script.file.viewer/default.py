@@ -264,15 +264,29 @@ def get_thumbs_to_cache(id_albums, exec_mode,
             WHERE art.media_id IN (%s)
               AND art.media_type = 'album'
             '''
+    info_album_query = '''
+                       SELECT iTrack >> 16 AS iDisc, albumview.idAlbum, songview.strPath
+                       FROM albumview
+                           JOIN songview
+                       ON songview.idAlbum = albumview.idAlbum
+                       WHERE albumview.idAlbum IN (%s)
+                       GROUP BY albumview.idAlbum,
+                           iDisc
+                       ORDER BY albumview.idAlbum,
+                           iDisc
+                       '''
     results = []
+    info_album_results = []
     if exec_mode == 'init':
         id_albums_subquery = 'SELECT idAlbum FROM album'
         results.extend(music_db_cursor.execute(query % id_albums_subquery).fetchall())
+        info_album_results.extend(music_db_cursor.execute(info_album_query % id_albums_subquery).fetchall())
     elif id_albums:
         chunks = [id_albums[i:i + 999] for i in range(0, len(id_albums), 999)]
         for chunk in chunks:
             placeholders = ','.join(['?'] * len(chunk))
             results.extend(music_db_cursor.execute(query % placeholders, chunk).fetchall())
+            info_album_results.extend(music_db_cursor.execute(info_album_query % placeholders, chunk).fetchall())
     music_db_cursor.close()
     music_db.close()
     if results:
@@ -283,25 +297,27 @@ def get_thumbs_to_cache(id_albums, exec_mode,
                 arts = {}
             arts[artType] = url
             arts_by_id_album[idAlbum] = arts
+        infos_album_by_path = {}
+        for (iDisc, idAlbum, strPath) in info_album_results:
+            infos_album = infos_album_by_path.get(strPath)
+            if not infos_album:
+                infos_album = []
+            infos_album.append(iDisc)
+            infos_album_by_path[strPath] = infos_album
         for id_album in arts_by_id_album.keys():
             paths = paths_by_id_album.get(id_album)
             arts = arts_by_id_album.get(id_album)
-            art_types = [art_type for art_type in arts.keys()]
-            sorted_art_types = sorted(art_types, key=natural_key)
             common_path = get_album_common_path(paths, sources)
             paths_to_check = []
             paths_to_check.append(common_path)
             if common_path not in paths:
                 paths_to_check.extend(paths)
-            for (index, path) in enumerate(paths_to_check):
-                """
-                nel caso di una struttura malformata di un album (più cartelle degli artwork previsti)
-                si va in fallback sul thumb principale
-                """
-                if index > len(sorted_art_types):
-                    art_type = 'thumb'
+            for path in paths_to_check:
+                infos_album = infos_album_by_path.get(path)
+                if infos_album and len(infos_album) == 1 and not len(paths_to_check) <= 1:
+                    art_type = f'thumb{infos_album[0]}'
                 else:
-                    art_type = sorted_art_types[index]
+                    art_type = 'thumb'
                 url = arts.get(art_type)
                 encoded_image = get_kodi_image_path(url)
                 message = f'{path}' if not use_webdav else f'{unquote(path)}'
