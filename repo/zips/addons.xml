@@ -84,7 +84,7 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="script.file.viewer" name="File Viewer" version="1.4.6" provider-name="AcidZab">
+</addon><addon id="script.file.viewer" name="File Viewer" version="1.4.7" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.1.0" />
         <import addon="script.module.zab.commons" version="1.0.3" />
@@ -123,7 +123,7 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="script.label.preloader" name="Label Preloader" version="3.2.2" provider-name="AcidZab">
+</addon><addon id="script.label.preloader" name="Label Preloader" version="3.2.3" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.1.0" />
         <import addon="script.module.zab.commons" version="1.0.3" />
@@ -133,7 +133,9 @@
     </extension>
     <extension point="xbmc.addon.metadata">
         <summary lang="it">Genera la vista per etichette discografiche</summary>
-        <description lang="it">Script per scaricare automaticamente le etichette discografiche visualizzate all'interno della sezione "Etichette Alfabetiche"</description>
+        <description lang="it">Script per scaricare automaticamente le etichette discografiche visualizzate all'interno
+            della sezione "Etichette Alfabetiche"
+        </description>
         <platform>all</platform>
         <license>GNU GENERAL PUBLIC LICENSE Version 2</license>
         <assets>

@@ -518,7 +518,7 @@ def force_confluence_wall_view(path):
     if not check_res:
         # inserisco il record sul db delle view mode
         insert_query = "INSERT INTO view (window, path, viewMode, sortMethod, sortOrder, sortAttributes, skin) VALUES (?,?,?,?,?,?,?)"
-        insert_values = (10502, path, 66036, 1, 1, 0, 'skin.confluence',)
+        insert_values = (10502, path, 66036, 1, 1, 0, 'skin.confluence.zabarchives',)
         view_mode_db_cursor.execute(insert_query, insert_values)
         view_mode_db.commit()
     view_mode_db_cursor.close()

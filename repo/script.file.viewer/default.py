@@ -19,7 +19,7 @@ addon_id = xbmcaddon.Addon().getAddonInfo('id')
 sqlite_params_limit = 999
 # Semaforo per non sovraccaricare Kodi con troppe richieste simultanee
 _texture_semaphore = threading.Semaphore(4)
-confluence_skin_dir = 'skin.confluence'
+confluence_skin_dir = 'skin.confluence.zabarchives'
 
 
 def log(msg):
