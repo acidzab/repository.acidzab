@@ -3,8 +3,9 @@ import os
 import re
 import sqlite3
 import string
+import xml.etree.ElementTree as ET
 from urllib.parse import quote, unquote
-from xml.etree import ElementTree
+from xml.dom import minidom
 
 import db_scan
 import unicodedata
@@ -22,8 +23,13 @@ central_etichette_path = f'{dav_base_source}/etichette/' if db_params.get(
 etichette_local_special = 'special://masterprofile/library/music/etichette/'
 etichette_local = xbmcvfs.translatePath(etichette_local_special)
 kodi_label_default_icon = 'DefaultMusicAlbums.png'
+main_node_label = 'Etichette Discografiche'
+main_node_icon = 'DefaultAddonAlbumInfo.png'
+folder_node_icon = 'DefaultFolder.png'
+main_node_order = 40
 smb_safe_chars = '()!'
 non_alphabetical_folder = 'NSP'
+allowed_files = ('.jpg', '.jpeg', '.png')
 
 
 def log(msg):
@@ -65,7 +71,7 @@ def sanitize(original_string, pattern, replace=""):
 
 
 def get_label_filename(label):
-    return sanitize(label, r"[^\w\s\+\-]").lower().replace(' ', '')
+    return sanitize(label, r"[^\w\s\-]").lower().replace(' ', '')
 
 
 def remove_textures(id_textures):
@@ -133,7 +139,7 @@ def get_labels_to_process(id_albums):
                     record_label = album_details.get('albumlabel')
                     if record_label and record_label not in labels_to_process:
                         labels_to_process.append(record_label)
-    return labels_to_process
+    return sorted(labels_to_process)
 
 
 def cleanup_textures(textures, labels_to_remove):
@@ -213,20 +219,19 @@ def get_label_paths_from_location(location):
     return labels
 
 
-def remove_labels(central_labels, textures, use_webdav):
+def remove_labels(labels, textures, use_webdav):
     labels_removed = False
     local_labels = get_label_paths_from_location(etichette_local)
-    label_names_central = get_label_names(central_labels)
-    label_names_local = get_label_names(local_labels)
-    labels_to_remove = []
+    label_names_central = tuple()
+    for label in labels:
+        label_names_central += (f'{get_label_filename(label)}',)
+    label_names_local = get_label_names(local_labels, use_webdav)
+    labels_to_remove = [label for label in label_names_local if
+                        not label.startswith(label_names_central) and label != 'index.xml']
     # qui raccolgo le label da ripristinare l'icon di default
     labels_to_update = []
     texture_to_cleanup = []
     paths_to_remove = []
-    for label in label_names_local:
-        quoted_label = db_scan.encode_string(label) if use_webdav else label
-        if quoted_label not in label_names_central:
-            labels_to_remove.append(label)
     for label_to_remove in labels_to_remove:
         for label_folder in local_labels.keys():
             if label_to_remove in local_labels.get(label_folder):
@@ -270,13 +275,13 @@ def remove_labels(central_labels, textures, use_webdav):
     return labels_removed
 
 
-def get_label_names(labels_dict):
+def get_label_names(labels_dict, use_webdav):
     label_names = []
     for alpha_label in labels_dict.keys():
         for file in labels_dict.get(alpha_label):
             file_name = get_label_name(file)
             if file_name not in label_names:
-                label_names.append(file_name)
+                label_names.append(db_scan.encode_string(file_name) if use_webdav else file_name)
     return label_names
 
 
@@ -338,12 +343,11 @@ def get_labels():
     for album in albums:
         if album.get('albumlabel') not in albums_label:
             albums_label.append(album.get('albumlabel'))
-    return albums_label
+    return sorted(albums_label)
 
 
-def get_labels_by_initial_letter():
-    labels_found = get_labels()
-    return build_labels_by_initial_letter(labels_found)
+def get_labels_by_initial_letter(labels):
+    return build_labels_by_initial_letter(labels)
 
 
 def build_labels_by_initial_letter(labels):
@@ -386,7 +390,7 @@ def update_label_order(label_to_update, labels_by_initial_letter):
     splitted_path = label_to_update.split('\\')
     label_file_name = splitted_path[len(splitted_path) - 1]
     translated_path = xbmcvfs.translatePath(label_to_update)
-    label_etree = ElementTree.parse(translated_path)
+    label_etree = ET.parse(translated_path)
     label_root = label_etree.getroot()
     label_value = label_root.find('rule').find('value').text
     label_folder_name = get_label_folder_name(label_value)
@@ -399,7 +403,7 @@ def update_label_order(label_to_update, labels_by_initial_letter):
 def set_icon(label_to_update, icon_to_set):
     splitted_path = label_to_update.split('\\')
     label_file_name = splitted_path[len(splitted_path) - 1]
-    label_etree = ElementTree.parse(label_to_update)
+    label_etree = ET.parse(label_to_update)
     label_root = label_etree.getroot()
     label_value = label_root.find('rule').find('value').text
     label_icon_tag = label_root.find('icon')
@@ -426,7 +430,8 @@ def get_potential_filenames_from_labels_to_process(labels_to_process):
     return potential_filenames
 
 
-def update_labels(central_labels, textures, albums_to_check, labels_to_check, use_webdav):
+def update_labels(central_labels_dir, textures, albums_to_check, labels_to_check, use_webdav,
+                  labels_by_initial_letter):
     # uso le chiavi di central labels perchè sono comuni anche con local labels
     # (sarebbero le cartelle per ordine alfabetico)
     progress = xbmcgui.DialogProgressBG()
@@ -439,14 +444,13 @@ def update_labels(central_labels, textures, albums_to_check, labels_to_check, us
         label_dirs = get_labels_dirs(albums_to_check, labels_to_check)
         potential_filenames = get_potential_filenames_from_labels_to_process(labels_to_check)
         labels_to_process_by_initial_letter = get_labels_to_process_by_initial_letter(labels_to_check)
-        sorted_central_labels = []
+        sorted_central_labels_dir = []
         if label_dirs:
-            sorted_central_labels = sorted(label_dirs)
-        labels_by_initial_letter = get_labels_by_initial_letter()
+            sorted_central_labels_dir = sorted(label_dirs)
 
         for directory in sorted(labels_to_process_by_initial_letter.keys()):
             central_directory = db_scan.encode_string(directory) if use_webdav else directory
-            central_files = central_labels.get(central_directory)
+            central_files = central_labels_dir.get(central_directory)
             total_label_to_process = len(central_files)
 
             for (step, file) in enumerate(central_files, 1):
@@ -467,9 +471,9 @@ def update_labels(central_labels, textures, albums_to_check, labels_to_check, us
                     percentuale = (step / total_label_to_process) * 100
                     progress.update(percent=int(percentuale), message=f'Label da aggiornare {file}')
 
-        for directory in sorted_central_labels:
+        for directory in sorted_central_labels_dir:
             central_directory = db_scan.encode_string(directory) if use_webdav else directory
-            central_files = central_labels.get(central_directory)
+            central_files = central_labels_dir.get(central_directory)
             total_label_to_process = len(central_files)
             for (step, file) in enumerate(central_files, 1):
                 directory = unquote(directory) if use_webdav else directory
@@ -525,6 +529,58 @@ def force_confluence_wall_view(path):
     view_mode_db.close()
 
 
+def init_node(folder_to_init, default_icon, main_node_label, order):
+    xbmcvfs.mkdir(folder_to_init)
+    file_name = 'index.xml'
+    destination_path = os.path.join(folder_to_init, file_name)
+    node = ET.Element('node', order=str(order))
+    label = ET.SubElement(node, 'label')
+    label.text = main_node_label
+    icon = ET.SubElement(node, 'icon')
+    icon.text = default_icon
+    index_xml = minidom.parseString(ET.tostring(node, encoding='UTF-8')).toprettyxml()
+    with xbmcvfs.File(destination_path, 'w') as genre_file:
+        genre_file.write(index_xml)
+
+
+def init_letter_folder_node(alphabetic_folder, default_icon, order):
+    file_name = 'index.xml'
+    alphabetic_folder_path = xbmcvfs.translatePath(f'{etichette_local_special}{alphabetic_folder}')
+    destination_path = os.path.join(alphabetic_folder_path, file_name)
+    node = ET.Element('node', order=str(order))
+    label = ET.SubElement(node, 'label')
+    label.text = alphabetic_folder if alphabetic_folder != non_alphabetical_folder else '#0'
+    icon = ET.SubElement(node, 'icon')
+    icon.text = default_icon
+    index_xml = minidom.parseString(ET.tostring(node, encoding='UTF-8')).toprettyxml()
+    with xbmcvfs.File(destination_path, 'w') as genre_file:
+        genre_file.write(index_xml)
+
+
+def generate_label_node(record_label, order, destination, label_folder_name, label_logo):
+    label_filename = get_label_filename(record_label)
+    file_name = f'{label_filename}.xml'
+    destination_path = os.path.join(destination, file_name)
+    node = ET.Element('node', order=str(order), type='filter')
+    label = ET.SubElement(node, 'label')
+    label.text = re.sub(r'\s*\[\d+]', '', record_label)
+    content_tag = ET.SubElement(node, "content")
+    content_tag.text = 'albums'
+    group_tag = ET.SubElement(node, 'group')
+    group_tag.text = 'years'
+    rule_tag = ET.SubElement(node, "rule")
+    rule_tag.set('field', 'label')
+    rule_tag.set('operator', 'is')
+    value_tag = ET.SubElement(rule_tag, "value")
+    value_tag.text = record_label
+    icon_tag = ET.SubElement(node, "icon")
+    logo_file_name_path_special = f'special://masterprofile/library/music/etichette/{label_folder_name}/{label_logo}'
+    icon_tag.text = 'DefaultMusicAlbums.png' if not label_logo else logo_file_name_path_special
+    node_xml = minidom.parseString(ET.tostring(node, encoding='UTF-8')).toprettyxml()
+    with xbmcvfs.File(destination_path, 'w') as genre_file:
+        genre_file.write(node_xml)
+
+
 def force_confluence_wall_view_for_labels(label):
     xsp_rule = {
         "group": {
@@ -555,20 +611,29 @@ def preload_labels_on_local_kodi():
     use_webdav = db_params.get('sourcetype') == 'webdav'
     central_labels = get_label_paths_from_location(central_etichette_path)
     textures = get_textures()
+    labels = get_labels()
+    labels_by_initial_letter = get_labels_by_initial_letter(labels)
     # inizializzo etichette e il suo relativo nodo
     if not xbmcvfs.exists(etichette_local):
         log(f'Inizializzo Etichette Alfabetiche')
         xbmcvfs.mkdir(etichette_local)
-    root_index_node_path = f'{central_etichette_path}{central_labels.get(central_etichette_path)[0]}'
     local_index_node_path = os.path.join(etichette_local, central_labels.get(central_etichette_path)[0])
+    log(f'local index node path {local_index_node_path}')
     if not xbmcvfs.exists(local_index_node_path):
-        log(f'Copio Etichette Alfabetiche {root_index_node_path} {local_index_node_path}')
-        xbmcvfs.copy(root_index_node_path, local_index_node_path)
+        log(f'Inizializzo Etichette Alfabetiche')
+        init_node(etichette_local, main_node_icon, main_node_label, main_node_order)
     del central_labels[central_etichette_path]
     sorted_central_labels = sorted(central_labels)
+    log(f'Label centrali ordinate {sorted_central_labels}')
 
     # scarica tutte le label disponibili dal percorso centrale
-    for directory in sorted_central_labels:
+    for (order, directory) in enumerate(sorted_central_labels, 2):
+        local_path_node = f'{etichette_local_special}{directory}/'
+        log(f'Path da controllare {local_path_node}')
+        if not xbmcvfs.exists(xbmcvfs.translatePath(local_path_node)):
+            xbmcvfs.mkdir(local_path_node)
+            order_to_set = 1 if directory == non_alphabetical_folder else order
+            init_letter_folder_node(directory, folder_node_icon, order_to_set)
         files = central_labels.get(directory)
         if files:
             for file in files:
@@ -578,14 +643,14 @@ def preload_labels_on_local_kodi():
                     labels_to_transfer[key] = source_file_path
 
     progress = xbmcgui.DialogProgressBG()
-    progress.create(addon_name, "Sto caricando le case discografiche")
+    progress.create(addon_name, "Sto caricando i loghi centralizzati delle case discografiche")
     try:
         total_label_to_process = len(labels_to_transfer.keys())
         for (step, label) in enumerate(labels_to_transfer.keys(), 1):
             # in caso di libreria webDAV controllo che il file decodificato sia già presente
             local_label = unquote(label) if use_webdav else label
             destination_path = os.path.join(etichette_local, local_label)
-            if not xbmcvfs.exists(destination_path) and not destination_path.endswith('.db'):
+            if not xbmcvfs.exists(destination_path) and destination_path.endswith(allowed_files):
                 if xbmcvfs.copy(labels_to_transfer.get(label), destination_path):
                     log(f'Copiato da {labels_to_transfer.get(label)} a {destination_path}')
                     percentuale = (step / total_label_to_process) * 100
@@ -593,7 +658,40 @@ def preload_labels_on_local_kodi():
     finally:
         progress.close()
 
-    remove_labels(central_labels, textures, use_webdav)
+    # genero gli xml delle etichette
+    local_labels = get_label_paths_from_location(etichette_local)
+    labels_to_generate = []
+    for label in labels:
+        folder_name = get_label_folder_name(label)
+        label_file_name = get_label_filename(label)
+        check_path = os.path.join(etichette_local, folder_name, label_file_name)
+        if not xbmcvfs.exists(check_path) and label not in labels_to_generate:
+            labels_to_generate.append(label)
+    progress = xbmcgui.DialogProgressBG()
+    progress.create(addon_name, "Sto caricando i loghi centralizzati delle case discografiche")
+    try:
+        for (order, label) in enumerate(labels_to_generate, 1):
+            folder_name = get_label_folder_name(label)
+            label_file_name = get_label_filename(label)
+            check_path = os.path.join(etichette_local, folder_name, label_file_name)
+            if not xbmcvfs.exists(check_path):
+                label_logo = None
+                partial_filename_match_pattern = rf'^{re.escape(label_file_name)}(?![a-zA-Z])\d*\.'
+                filtered_content = list(filter(
+                    lambda label_node: re.match(partial_filename_match_pattern, label_node) and not label_node.endswith(
+                        '.xml'),
+                    local_labels.get(folder_name)))
+                if len(filtered_content) == 1:
+                    label_logo = filtered_content[0]
+                destination_path = os.path.join(etichette_local, folder_name)
+                generate_label_node(label, order, destination_path, folder_name, label_logo)
+                percentuale = (order / len(labels_to_generate)) * 100
+                progress.update(percent=int(percentuale), message=re.sub(r'\s*\[\d+]', '', label))
+    finally:
+        progress.close()
+
+    remove_labels(labels, textures, use_webdav)
+
     paths_from_params = db_scan.get_paths_from_params()
     if paths_from_params:
         albums_to_check = get_ids_to_refresh(paths_from_params, use_webdav)
@@ -603,7 +701,7 @@ def preload_labels_on_local_kodi():
             if local_label_directory != etichette_local:
                 path_to_force = f'library://music/etichette/{local_label_directory}/'
                 force_confluence_wall_view(path_to_force)
-        update_labels(central_labels, textures, albums_to_check, labels_to_check, use_webdav)
+        update_labels(central_labels, textures, albums_to_check, labels_to_check, use_webdav, labels_by_initial_letter)
         if labels_to_check:
             progress.create(addon_name, "Aggiorno la visualizzazione delle label")
             try:
