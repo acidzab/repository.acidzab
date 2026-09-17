@@ -615,21 +615,15 @@ def preload_labels_on_local_kodi():
     labels_by_initial_letter = get_labels_by_initial_letter(labels)
     # inizializzo etichette e il suo relativo nodo
     if not xbmcvfs.exists(etichette_local):
-        log(f'Inizializzo Etichette Alfabetiche')
         xbmcvfs.mkdir(etichette_local)
     local_index_node_path = os.path.join(etichette_local, 'index.xml')
-    log(f'local index node path {local_index_node_path}')
     if not xbmcvfs.exists(local_index_node_path):
-        log(f'Inizializzo Etichette Alfabetiche')
         init_node(etichette_local, main_node_icon, main_node_label, main_node_order)
-    del central_labels[central_etichette_path]
     sorted_central_labels = sorted(central_labels)
-    log(f'Label centrali ordinate {sorted_central_labels}')
 
     # scarica tutte le label disponibili dal percorso centrale
     for (order, directory) in enumerate(sorted_central_labels, 2):
         local_path_node = f'{etichette_local_special}{directory}/'
-        log(f'Path da controllare {local_path_node}')
         if not xbmcvfs.exists(xbmcvfs.translatePath(local_path_node)):
             xbmcvfs.mkdir(local_path_node)
             order_to_set = 1 if directory == non_alphabetical_folder else order
