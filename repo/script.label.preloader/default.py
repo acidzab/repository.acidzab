@@ -617,7 +617,7 @@ def preload_labels_on_local_kodi():
     if not xbmcvfs.exists(etichette_local):
         log(f'Inizializzo Etichette Alfabetiche')
         xbmcvfs.mkdir(etichette_local)
-    local_index_node_path = os.path.join(etichette_local, central_labels.get(central_etichette_path)[0])
+    local_index_node_path = os.path.join(etichette_local, 'index.xml')
     log(f'local index node path {local_index_node_path}')
     if not xbmcvfs.exists(local_index_node_path):
         log(f'Inizializzo Etichette Alfabetiche')
