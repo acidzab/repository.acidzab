@@ -637,7 +637,7 @@ def preload_labels_on_local_kodi():
                     labels_to_transfer[key] = source_file_path
 
     progress = xbmcgui.DialogProgressBG()
-    progress.create(addon_name, "Sto caricando i loghi centralizzati delle case discografiche")
+    progress.create(addon_name, "Carico i loghi delle case discografiche")
     try:
         total_label_to_process = len(labels_to_transfer.keys())
         for (step, label) in enumerate(labels_to_transfer.keys(), 1):
@@ -662,11 +662,11 @@ def preload_labels_on_local_kodi():
         if not xbmcvfs.exists(check_path) and label not in labels_to_generate:
             labels_to_generate.append(label)
     progress = xbmcgui.DialogProgressBG()
-    progress.create(addon_name, "Sto caricando i loghi centralizzati delle case discografiche")
+    progress.create(addon_name, "Genero le case discografiche")
     try:
         for (order, label) in enumerate(labels_to_generate, 1):
             folder_name = get_label_folder_name(label)
-            label_file_name = get_label_filename(label)
+            label_file_name = f'{get_label_filename(label)}.xml'
             check_path = os.path.join(etichette_local, folder_name, label_file_name)
             if not xbmcvfs.exists(check_path):
                 label_logo = None
