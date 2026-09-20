@@ -71,23 +71,24 @@ def get_id_albums(paths):
     return album_ids
 
 
-def get_view_paths(paths):
-    view_paths = set()
+def get_view_paths(paths, exec_mode):
+    results = []
     query = "SELECT path FROM VIEW vista WHERE vista.path IN (%s)"
+    full_fetch_sub_query = 'SELECT path FROM view'
     view_mode_db_path = db_scan.get_view_modes_db_path()
     view_mode_db = sqlite3.connect(view_mode_db_path)
     view_mode_db.set_trace_callback(log)
     view_mode_db_cursor = view_mode_db.cursor()
-    chunks = [paths[i:i + sqlite_params_limit] for i in range(0, len(paths), sqlite_params_limit)]
-    results = []
-    for chunk in chunks:
-        placeholders = ','.join(['?'] * len(chunk))
-        results.extend(view_mode_db_cursor.execute(query % placeholders, chunk).fetchall())
+    if exec_mode == 'init':
+        results.extend(view_mode_db_cursor.execute(query % full_fetch_sub_query).fetchall())
+    else:
+        chunks = [paths[i:i + sqlite_params_limit] for i in range(0, len(paths), sqlite_params_limit)]
+        for chunk in chunks:
+            placeholders = ','.join(['?'] * len(chunk))
+            results.extend(view_mode_db_cursor.execute(query % placeholders, chunk).fetchall())
     view_mode_db_cursor.close()
     view_mode_db.close()
-    for (path,) in results:
-        view_paths.add(path)
-    return view_paths
+    return {path for (path,) in results}
 
 
 def get_ids_to_refresh(paths_from_params, use_webdav):
@@ -147,6 +148,20 @@ def force_confluence_wall_view_for_files(directory, exsisting_paths):
     add_new_view_record(directory, 66036, 1, exsisting_paths, confluence_skin_dir)
 
 
+def get_textures_path_by_url():
+    texture_db_path = db_scan.get_textures_db_path()
+    texture_db = sqlite3.connect(texture_db_path)
+    texture_db.set_trace_callback(log)
+    texture_db_cursor = texture_db.cursor()
+    query = '''SELECT id, url, texture
+               FROM path
+               WHERE type = 'thumb' '''
+    results = texture_db_cursor.execute(query).fetchall()
+    texture_db_cursor.close()
+    texture_db.close()
+    return {url: (id, texture) for (id, url, texture) in results}
+
+
 def get_paths_to_convert(albums_by_source):
     paths_to_convert = []
     for source in albums_by_source.keys():
@@ -170,14 +185,13 @@ def get_paths_to_convert(albums_by_source):
     return paths_to_convert
 
 
-def update_texture_path(dir_path, img_vfs_url):
+def update_texture_path(dir_path, img_vfs_url, texture_by_dir):
     texture_db_path = db_scan.get_textures_db_path()
     texture_db = sqlite3.connect(texture_db_path)
     texture_db.set_trace_callback(log)
     texture_db_cursor = texture_db.cursor()
-    find_id_query = "select id, texture from path where url = ? and type = 'thumb'"
     update_query = "update path set texture= ? where id = ?"
-    texture_path_result = texture_db_cursor.execute(find_id_query, (dir_path,)).fetchone()
+    texture_path_result = texture_by_dir.get(dir_path)
     if not texture_path_result:
         insert_query = "insert into path (url, type, texture) values(?, ?, ?)"
         texture_db_cursor.execute(insert_query, (dir_path, 'thumb', img_vfs_url))
@@ -216,13 +230,13 @@ def clean_texture_path():
     texture_db.close()
 
 
-def convert_to_thumb_view(paths_to_convert, use_webdav, id_albums, exec_mode, sources):
+def convert_to_thumb_view(paths_to_convert, use_webdav, id_albums, exec_mode, sources, texture_by_dir):
     if paths_to_convert:
         progress = xbmcgui.DialogProgressBG()
         total_dirs_to_process = len(paths_to_convert)
         progress.create(addon_name, message='Imposto la vista di default per i file')
         try:
-            exsisting_paths = get_view_paths(paths_to_convert)
+            exsisting_paths = get_view_paths(paths_to_convert, exec_mode)
             for (step, directory) in enumerate(paths_to_convert, 1):
                 force_confluence_wall_view_for_files(directory, exsisting_paths)
                 percentuale = (step / total_dirs_to_process) * 100
@@ -233,7 +247,7 @@ def convert_to_thumb_view(paths_to_convert, use_webdav, id_albums, exec_mode, so
         try:
             paths_by_id_album = get_album_paths_by_id(id_albums, exec_mode == 'init')
             paths_to_cache = get_thumbs_to_cache(id_albums, exec_mode, paths_by_id_album, use_webdav, sources)
-            cache_thumbs(paths_to_cache, progress)
+            cache_thumbs(paths_to_cache, progress, texture_by_dir)
             clean_texture_path()
         finally:
             progress.close()
@@ -385,11 +399,11 @@ def get_album_paths_by_id(id_albums, fetch_all_albums):
     return paths_by_album
 
 
-def _cache_single_thumb(path_to_cache, dir_path, img_vfs_url):
+def _cache_single_thumb(path_to_cache, dir_path, img_vfs_url, texture_by_dir):
     """Cacha una singola texture in modo thread-safe"""
     with _texture_semaphore:
         try:
-            update_texture_path(dir_path, img_vfs_url)
+            update_texture_path(dir_path, img_vfs_url, texture_by_dir)
             with xbmcvfs.File(path_to_cache):
                 pass
             return path_to_cache, True
@@ -398,7 +412,7 @@ def _cache_single_thumb(path_to_cache, dir_path, img_vfs_url):
             return path_to_cache, False
 
 
-def cache_thumbs(paths_to_cache, progress_bar):
+def cache_thumbs(paths_to_cache, progress_bar, texture_by_dir):
     total = len(paths_to_cache)
     completed = 0
     lock = threading.Lock()
@@ -409,7 +423,8 @@ def cache_thumbs(paths_to_cache, progress_bar):
                 _cache_single_thumb,
                 path,
                 paths_to_cache[path][1],  # dir_path
-                path  # img_vfs_url
+                path,  # img_vfs_url
+                texture_by_dir
             ): path
             for path in paths_to_cache
         }
@@ -428,7 +443,7 @@ def convert_playlists_to_info_media_view():
     progress = xbmcgui.DialogProgressBG()
     playlists = xbmcvfs.listdir(os.path.join('special://profile/playlists/music'))[1]
     playlists_paths = [f'special://profile/playlists/music/{playlist}/' for playlist in playlists]
-    exsisting_playlists = get_view_paths(playlists_paths)
+    exsisting_playlists = get_view_paths(playlists_paths, 'scan')
     progress.create(addon_name, message='Imposto la vista di default per le playlist')
     try:
         for (step, playlist) in enumerate(playlists, 1):
@@ -446,6 +461,7 @@ def switch_to_thumb_view_for_files():
     exec_mode = db_scan.get_exec_mode()
     use_webdav = db_params.get('sourcetype') == 'webdav'
     sources = get_sources()
+    texture_by_dir = get_textures_path_by_url()
     sources_paths = [source.get('file') for source in sources]
     id_albums = []
     ## exec mode non valorizzato -> lancio secco dagli addon
@@ -460,7 +476,7 @@ def switch_to_thumb_view_for_files():
         if source_into_album:
             albums_by_source[source_path] = source_into_album
     paths_to_convert = get_paths_to_convert(albums_by_source)
-    convert_to_thumb_view(paths_to_convert, use_webdav, id_albums, exec_mode, sources_paths)
+    convert_to_thumb_view(paths_to_convert, use_webdav, id_albums, exec_mode, sources_paths, texture_by_dir)
     convert_playlists_to_info_media_view()
     builtin_cmd = f'NotifyAll({addon_id}, OnViewSwitched)'
     xbmc.executebuiltin(builtin_cmd)
