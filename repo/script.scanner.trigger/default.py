@@ -674,6 +674,7 @@ def update_arts(arts_to_insert, arts_to_update, arts_to_remove):
         music_db.commit()
     music_db_cursor.close()
     music_db.close()
+    set_item_update(arts_to_insert, arts_to_update, arts_to_remove)
 
 
 def update_artist_records(central_artists, local_artists, artists_to_update):
@@ -915,7 +916,8 @@ def align_media_to_central_db(paths, local_paths, exec_mode, db_params):
                             local_key = (id_song, song.get('musicbrainzalbumid'), song.get('label'))
                             central_song_art = central_song_arts.get(central_key)
                             local_song_art = local_song_arts.get(local_key)
-                            _prepare_art_tuples_optimized(arts_to_insert, arts_to_remove, arts_to_update, central_song_art,
+                            _prepare_art_tuples_optimized(arts_to_insert, arts_to_remove, arts_to_update,
+                                                          central_song_art,
                                                           local_song_art,
                                                           id_song, 'song')
                     else:
@@ -932,7 +934,8 @@ def align_media_to_central_db(paths, local_paths, exec_mode, db_params):
                         central_artist_info = central_artists_by_mbid.get(central_mbid)
                         local_artist_info = local_artists_by_mbid.get(central_mbid)
                         if central_artist_info and local_artist_info:
-                            central_artist_art = {'thumb': central_artist_info.get('art_url')} if central_artist_info.get(
+                            central_artist_art = {
+                                'thumb': central_artist_info.get('art_url')} if central_artist_info.get(
                                 'art_url') else None
                             local_artist_art = {'thumb': local_artist_info.get('art_url')} if local_artist_info.get(
                                 'art_url') else None
@@ -942,14 +945,17 @@ def align_media_to_central_db(paths, local_paths, exec_mode, db_params):
                                                           local_artist_art,
                                                           local_artist_info.get('id'), 'artist')
         else:
-            processed_arts = process_media_art_with_batching(db_params, music_db_name, central_album_arts, local_album_arts,
-                                                             central_song_arts, local_song_arts, central_artists_by_mbid,
+            processed_arts = process_media_art_with_batching(db_params, music_db_name, central_album_arts,
+                                                             local_album_arts,
+                                                             central_song_arts, local_song_arts,
+                                                             central_artists_by_mbid,
                                                              local_artists_by_mbid)
             arts_to_insert = processed_arts.get('arts_to_insert')
             arts_to_remove = processed_arts.get('arts_to_remove')
             arts_to_update = processed_arts.get('arts_to_update')
 
         update_arts(list(arts_to_insert), list(arts_to_update), list(arts_to_remove))
+
     finally:
         progress.close()
     compact_db()
@@ -982,6 +988,59 @@ def _prepare_art_tuples_optimized(arts_to_insert, arts_to_remove, arts_to_update
             elif central_art.get(art_type) != local_url:
                 central_url = central_art.get(art_type)
                 arts_to_update.add((central_url, media_id, media_type, art_type))
+
+
+def set_item_update(arts_to_insert, arts_to_update, arts_to_remove):
+    artist_update = 'UPDATE artist SET strArtist = strArtist WHERE idArtist = ?'
+    album_update = 'UPDATE album SET strAlbum = strAlbum WHERE idAlbum = ?'
+    song_update = 'UPDATE song SET strTitle = strTitle WHERE idSong = ?'
+    media_ids_by_media_type = {}
+    if arts_to_insert:
+        for media_id, media_type, art_type, art_url in arts_to_insert:
+            media_ids = media_ids_by_media_type.get(media_type)
+            if not media_ids:
+                media_ids = list()
+            tupled_id = (media_id,)
+            if tupled_id not in media_ids:
+                media_ids.append(tupled_id)
+            media_ids_by_media_type[media_type] = media_ids
+    if arts_to_update:
+        for art_url, media_id, media_type, art_type in arts_to_update:
+            media_ids = media_ids_by_media_type.get(media_type)
+            if not media_ids:
+                media_ids = list()
+            tupled_id = (media_id,)
+            if tupled_id not in media_ids:
+                media_ids.append(tupled_id)
+            media_ids_by_media_type[media_type] = media_ids
+    if arts_to_remove:
+        for media_id, media_type, art_type in arts_to_remove:
+            media_ids = media_ids_by_media_type.get(media_type)
+            if not media_ids:
+                media_ids = list()
+            tupled_id = (media_id,)
+            if tupled_id not in media_ids:
+                media_ids.append(tupled_id)
+            media_ids_by_media_type[media_type] = media_ids
+
+    if media_ids_by_media_type:
+        music_db_path = db_scan.get_music_db_path()
+        music_db = sqlite3.connect(music_db_path)
+        music_db.set_trace_callback(log)
+        music_db_cursor = music_db.cursor()
+        for media_type in media_ids_by_media_type.keys():
+            media_ids = media_ids_by_media_type.get(media_type)
+            if media_type == 'artist':
+                music_db_cursor.executemany(artist_update, media_ids)
+                music_db.commit()
+            elif media_type == 'album':
+                music_db_cursor.executemany(album_update, media_ids)
+                music_db.commit()
+            elif media_type == 'song':
+                music_db_cursor.executemany(song_update, media_ids)
+                music_db.commit()
+        music_db_cursor.close()
+        music_db.close()
 
 
 def process_media_art_with_batching(db_params, music_db_name, central_album_arts, local_album_arts,
