@@ -234,15 +234,16 @@ def remove_labels(central_labels, use_webdav, local_labels, labels):
             quoted_label = db_scan.encode_string(label) if use_webdav else label
             if quoted_label not in label_names_central:
                 label_folder = get_label_folder_name(label)
-                special_path = f'{etichette_local_special}{label_folder}/{label}'
+                special_path = f'{etichette_local_special}{label_folder}/{quoted_label}'
                 texture_to_cleanup.append(special_path)
-                file_stem = label.split('.')[0]
+                file_stem = quoted_label.split('.')[0]
                 label_node_file_name = f'{file_stem}.xml'
                 labels_to_update.append(f'{etichette_local_special}{label_folder}/{label_node_file_name}')
 
     library_labels = tuple()
     for label in labels:
-        library_labels += (f'{get_label_filename(label)}',)
+        library_labels += (
+            f'{db_scan.encode_string(get_label_filename(label)) if use_webdav else get_label_filename(label)}',)
     labels_to_remove = [label for label in label_names_local if
                         not label.startswith(library_labels) and label != 'index.xml']
     paths_to_remove = []
