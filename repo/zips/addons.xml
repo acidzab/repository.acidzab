@@ -174,7 +174,7 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="script.module.zab.pymysql" name="PyMySQL" version="1.2.0.1" provider-name="Inada Naoki, Yutaka Matsubara">
+</addon><addon id="script.module.zab.pymysql" name="PyMySQL" version="1.2.3" provider-name="Inada Naoki, Yutaka Matsubara">
     <requires>
         <import addon="xbmc.python" version="3.1.0" />
     </requires>

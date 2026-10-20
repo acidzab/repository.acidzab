@@ -2,6 +2,9 @@
 # http://dev.mysql.com/doc/internals/en/client-server-protocol.html
 # Error codes:
 # https://dev.mysql.com/doc/refman/5.5/en/error-handling.html
+from __future__ import annotations
+
+import contextlib
 import errno
 import os
 import socket
@@ -10,22 +13,19 @@ import sys
 import traceback
 import warnings
 
-from . import _auth
-
-from .charset import charset_by_name, charset_by_id
+from . import VERSION_STRING, _auth, converters, err
+from .charset import charset_by_id, charset_by_name
 from .constants import CLIENT, COMMAND, CR, ER, FIELD_TYPE, SERVER_STATUS
-from . import converters
 from .cursors import Cursor
 from .optionfile import Parser
 from .protocol import (
-    dump_packet,
-    MysqlPacket,
-    FieldDescriptorPacket,
-    OKPacketWrapper,
     EOFPacketWrapper,
+    FieldDescriptorPacket,
     LoadLocalPacketWrapper,
+    MysqlPacket,
+    OKPacketWrapper,
+    dump_packet,
 )
-from . import err, VERSION_STRING
 
 try:
     import ssl
@@ -114,7 +114,9 @@ class Connection:
         (default: None - no timeout)
     :param write_timeout: The timeout for writing to the connection in seconds.
         (default: None - no timeout)
-    :param str charset: Charset to use.
+    :param str charset: Charset to use. "utf8" (or "utf8mb4") is recommended.
+        legacy multibyte encodings may pose security risks.
+        Do not use such encodings for public-facing systems.
     :param str collation: Collation name to use.
     :param sql_mode: Default SQL_MODE to use.
     :param read_default_file:
@@ -156,7 +158,7 @@ class Connection:
         an argument.  For the dialog plugin, a prompt(echo, prompt) method can be used
         (if no authenticate method) for returning a string from the user. (experimental)
     :param server_public_key: SHA256 authentication plugin public key value. (default: None)
-    :param binary_prefix: Add _binary prefix on bytes and bytearray. (default: False)
+    :param binary_prefix: **DEPRECATED**
     :param compress: Not supported.
     :param named_pipe: Not supported.
     :param db: **DEPRECATED** Alias for database.
@@ -354,7 +356,6 @@ class Connection:
         self.init_command = init_command
         self.max_allowed_packet = max_allowed_packet
         self._auth_plugin_map = auth_plugin_map or {}
-        self._binary_prefix = binary_prefix
         self.server_public_key = server_public_key
 
         self._connect_attrs = {
@@ -434,9 +435,8 @@ class Connection:
             return
         send_data = struct.pack("<iB", 1, COMMAND.COM_QUIT)
         try:
-            self._write_bytes(send_data)
-        except Exception:
-            pass
+            with contextlib.suppress(Exception):
+                self._write_bytes(send_data)
         finally:
             self._force_close()
 
@@ -527,38 +527,37 @@ class Connection:
         self._execute_command(COMMAND.COM_INIT_DB, db)
         self._read_ok_packet()
 
-    def escape(self, obj, mapping=None):
+    def escape(self, obj, mapping=None) -> str:
         """Escape whatever value is passed.
 
         Non-standard, for internal use; do not use this in your applications.
         """
         if isinstance(obj, str):
-            return "'" + self.escape_string(obj) + "'"
-        if isinstance(obj, (bytes, bytearray)):
-            ret = self._quote_bytes(obj)
-            if self._binary_prefix:
-                ret = "_binary" + ret
-            return ret
-        return converters.escape_item(obj, self.charset, mapping=mapping)
+            return f"'{self._escape_string(obj)}'"
 
-    def literal(self, obj):
+        if isinstance(obj, (bytes, bytearray)):
+            return f"X'{obj.hex()}'"
+
+        if mapping is None:
+            mapping = self.encoders
+        return converters.escape_item(obj, self.encoding, mapping=mapping)
+
+    def literal(self, obj) -> str:
         """Alias for escape().
 
         Non-standard, for internal use; do not use this in your applications.
         """
-        return self.escape(obj, self.encoders)
+        warnings.warn(
+            "literal() is deprecated and will be removed in the next version.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.escape(obj)
 
-    def escape_string(self, s):
+    def _escape_string(self, s: str):
         if self.server_status & SERVER_STATUS.SERVER_STATUS_NO_BACKSLASH_ESCAPES:
-            return s.replace("'", "''")
+            return s.replace("'", "''")  # Escape only single quote. Use '' quote
         return converters.escape_string(s)
-
-    def _quote_bytes(self, s):
-        if self.server_status & SERVER_STATUS.SERVER_STATUS_NO_BACKSLASH_ESCAPES:
-            return "'{}'".format(
-                s.replace(b"'", b"''").decode("ascii", "surrogateescape")
-            )
-        return converters.escape_bytes(s)
 
     def cursor(self, cursor=None):
         """
@@ -577,7 +576,7 @@ class Connection:
         # if DEBUG:
         #     print("DEBUG: sending query:", sql)
         if isinstance(sql, str):
-            sql = sql.encode(self.encoding, "surrogateescape")
+            sql = sql.encode(self.encoding)
         self._execute_command(COMMAND.COM_QUERY, sql)
         self._affected_rows = self._read_query_result(unbuffered=unbuffered)
         return self._affected_rows
@@ -643,7 +642,7 @@ class Connection:
 
     def set_character_set(self, charset, collation=None):
         """
-        Set charaset (and collation)
+        Set charset (and collation)
 
         Send "SET NAMES charset [COLLATE collation]" query.
         Update Connection.encoding based on charset.
@@ -692,9 +691,10 @@ class Connection:
                         print("connected using socket")
                     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
                     sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-                sock.settimeout(None)
 
             self._sock = sock
+            sock.settimeout(self._read_timeout)
+            self._current_timeout = self._read_timeout
             self._rfile = sock.makefile("rb")
             self._next_seq_id = 0
 
@@ -702,7 +702,7 @@ class Connection:
             self._request_authentication()
 
             # Send "SET NAMES" query on init for:
-            # - Ensure charaset (and collation) is set to the server.
+            # - Ensure charset (and collation) is set to the server.
             #   - collation_id in handshake packet may be ignored.
             # - If collation is not specified, we don't know what is server's
             #   default collation for the charset. For example, default collation
@@ -731,7 +731,7 @@ class Connection:
         except BaseException as e:
             self._force_close()
 
-            if isinstance(e, (OSError, IOError)):
+            if isinstance(e, OSError):
                 exc = err.OperationalError(
                     CR.CR_CONN_HOST_ERROR,
                     f"Can't connect to MySQL server on {self.host!r} ({e})",
@@ -767,7 +767,14 @@ class Connection:
         :raise OperationalError: If the connection to the MySQL server is lost.
         :raise InternalError: If the packet sequence number is wrong.
         """
-        buff = bytearray()
+        # Although `socket.settimeout()` may appear fast, it temporarily releases
+        # the GIL, which can hurt performance in multithreaded applications.
+        # Avoid calling it repeatedly at high frequency.
+        if self._current_timeout != self._read_timeout:
+            self._sock.settimeout(self._read_timeout)
+            self._current_timeout = self._read_timeout
+
+        buff = []
         while True:
             packet_header = self._read_bytes(4)
             # if DEBUG: dump_packet(packet_header)
@@ -791,12 +798,12 @@ class Connection:
             recv_data = self._read_bytes(bytes_to_read)
             if DEBUG:
                 dump_packet(recv_data)
-            buff += recv_data
+            buff.append(recv_data)
             # https://dev.mysql.com/doc/internals/en/sending-more-than-16mbyte.html
             if bytes_to_read < MAX_PACKET_LEN:
                 break
 
-        packet = packet_type(bytes(buff), self.encoding)
+        packet = packet_type(b"".join(buff), self.encoding)
         if packet.is_error_packet():
             if self._result is not None and self._result.unbuffered_active is True:
                 self._result.unbuffered_active = False
@@ -804,7 +811,8 @@ class Connection:
         return packet
 
     def _read_bytes(self, num_bytes):
-        self._sock.settimeout(self._read_timeout)
+        # NOTE: caller should call self._sock.settimeout(self._read_timeout)
+        # before first read.
         while True:
             try:
                 data = self._rfile.read(num_bytes)
@@ -829,7 +837,9 @@ class Connection:
         return data
 
     def _write_bytes(self, data):
-        self._sock.settimeout(self._write_timeout)
+        if self._current_timeout != self._write_timeout:
+            self._sock.settimeout(self._write_timeout)
+            self._current_timeout = self._write_timeout
         try:
             self._sock.sendall(data)
         except OSError as e:
@@ -999,39 +1009,74 @@ class Connection:
         self.write_packet(data)
         auth_packet = self._read_packet()
 
-        # if authentication method isn't accepted the first byte
-        # will have the octet 254
-        if auth_packet.is_auth_switch_request():
-            if DEBUG:
-                print("received auth switch")
-            # https://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::AuthSwitchRequest
-            auth_packet.read_uint8()  # 0xfe packet identifier
-            plugin_name = auth_packet.read_string()
-            if (
-                self.server_capabilities & CLIENT.PLUGIN_AUTH
-                and plugin_name is not None
-            ):
-                auth_packet = self._process_auth(plugin_name, auth_packet)
-            else:
+        # Authentication is a state machine. An authentication plugin can return
+        # another transition packet (for example, MySQL Router can request full
+        # caching_sha2_password authentication and then switch to the backend's
+        # mysql_native_password plugin), so keep dispatching until the server
+        # sends a terminal packet.
+        auth_plugin_name = self._auth_plugin_name
+        if isinstance(auth_plugin_name, str):
+            auth_plugin_name = auth_plugin_name.encode("ascii")
+        auth_plugin_handler = self._get_auth_plugin_handler(auth_plugin_name)
+        auth_switch_received = False
+
+        while True:
+            # Custom authentication handlers historically did not need to return
+            # the final OK packet after consuming the complete exchange.
+            if auth_packet is None and auth_plugin_handler:
+                break
+
+            # if authentication method isn't accepted the first byte
+            # will have the octet 254
+            if auth_packet.is_auth_switch_request():
+                if auth_switch_received:
+                    raise err.OperationalError("received multiple auth switch requests")
+                auth_switch_received = True
+                if DEBUG:
+                    print("received auth switch")
+                # https://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::AuthSwitchRequest
+                auth_packet.read_uint8()  # 0xfe packet identifier
+                plugin_name = auth_packet.read_string()
+                if (
+                    self.server_capabilities & CLIENT.PLUGIN_AUTH
+                    and plugin_name is not None
+                ):
+                    auth_plugin_name = plugin_name
+                    auth_plugin_handler = self._get_auth_plugin_handler(plugin_name)
+                    auth_packet = self._process_auth(
+                        plugin_name, auth_packet, auth_plugin_handler
+                    )
+                    continue
                 raise err.OperationalError("received unknown auth switch request")
-        elif auth_packet.is_extra_auth_data():
-            if DEBUG:
-                print("received extra data")
-            # https://dev.mysql.com/doc/internals/en/successful-authentication.html
-            if self._auth_plugin_name == "caching_sha2_password":
-                auth_packet = _auth.caching_sha2_password_auth(self, auth_packet)
-            elif self._auth_plugin_name == "sha256_password":
-                auth_packet = _auth.sha256_password_auth(self, auth_packet)
-            else:
+
+            if auth_packet.is_extra_auth_data():
+                if DEBUG:
+                    print("received extra data")
+                # https://dev.mysql.com/doc/internals/en/successful-authentication.html
+                if auth_plugin_handler:
+                    auth_packet = auth_plugin_handler.authenticate(auth_packet)
+                    continue
+                elif auth_plugin_name in (
+                    b"caching_sha2_password",
+                    "caching_sha2_password",
+                ):
+                    auth_packet = _auth.caching_sha2_password_auth(self, auth_packet)
+                    continue
+                if auth_plugin_name in (b"sha256_password", "sha256_password"):
+                    auth_packet = _auth.sha256_password_auth(self, auth_packet)
+                    continue
                 raise err.OperationalError(
-                    "Received extra packet for auth method %r", self._auth_plugin_name
+                    "Received extra packet for auth method %r", auth_plugin_name
                 )
+
+            if auth_packet.is_ok_packet():
+                break
+            raise err.OperationalError("unexpected packet during authentication")
 
         if DEBUG:
             print("Succeed to auth")
 
-    def _process_auth(self, plugin_name, auth_packet):
-        handler = self._get_auth_plugin_handler(plugin_name)
+    def _process_auth(self, plugin_name, auth_packet, handler=None):
         if handler:
             try:
                 return handler.authenticate(auth_packet)
@@ -1278,8 +1323,8 @@ class MySQLResult:
             self.affected_rows = 18446744073709551615
             self.unbuffered_active = True
 
-    def _read_ok_packet(self, first_packet):
-        ok_packet = OKPacketWrapper(first_packet)
+    def _read_ok_packet(self, packet):
+        ok_packet = OKPacketWrapper(packet)
         self.affected_rows = ok_packet.affected_rows
         self.insert_id = ok_packet.insert_id
         self.server_status = ok_packet.server_status
@@ -1288,25 +1333,24 @@ class MySQLResult:
         self.has_next = ok_packet.has_next
 
     def _read_load_local_packet(self, first_packet):
-        if not self.connection._local_infile:
+        conn: Connection = self.connection
+        if not conn._local_infile:
             raise RuntimeError(
                 "**WARN**: Received LOAD_LOCAL packet but local_infile option is false."
             )
         load_packet = LoadLocalPacketWrapper(first_packet)
-        sender = LoadLocalFile(load_packet.filename, self.connection)
         try:
-            sender.send_data()
-        except:
-            self.connection._read_packet()  # skip ok packet
-            raise
+            _send_local_file(load_packet.filename, conn)
+        finally:
+            # send the empty packet to signify we are done sending data
+            conn.write_packet(b"")
+            ok_packet = conn._read_packet()
+            # If an error occurs while sending the file, exit here without handling
+            # the OK packet.
 
-        ok_packet = self.connection._read_packet()
-        if (
-            not ok_packet.is_ok_packet()
-        ):  # pragma: no cover - upstream induced protocol error
+        if not ok_packet.is_ok_packet():
             raise err.OperationalError(
-                CR.CR_COMMANDS_OUT_OF_SYNC,
-                "Commands Out of Sync",
+                CR.CR_COMMANDS_OUT_OF_SYNC, "Commands Out of Sync"
             )
         self._read_ok_packet(ok_packet)
 
@@ -1445,33 +1489,20 @@ class MySQLResult:
         self.description = tuple(description)
 
 
-class LoadLocalFile:
-    def __init__(self, filename, connection):
-        self.filename = filename
-        self.connection = connection
+def _send_local_file(filename: str, conn: Connection):
+    """Send data packets from the local file to the server"""
+    packet_size = min(conn.max_allowed_packet, 16 * 1024)
 
-    def send_data(self):
-        """Send data packets from the local file to the server"""
-        if not self.connection._sock:
-            raise err.InterfaceError(0, "")
-        conn: Connection = self.connection
-
-        try:
-            with open(self.filename, "rb") as open_file:
-                packet_size = min(
-                    conn.max_allowed_packet, 16 * 1024
-                )  # 16KB is efficient enough
-                while True:
-                    chunk = open_file.read(packet_size)
-                    if not chunk:
-                        break
-                    conn.write_packet(chunk)
-        except OSError:
-            raise err.OperationalError(
-                ER.FILE_NOT_FOUND,
-                f"Can't find file '{self.filename}'",
-            )
-        finally:
-            if not conn._closed:
-                # send the empty packet to signify we are done sending data
-                conn.write_packet(b"")
+    try:
+        with open(filename, "rb") as file:
+            # 16KB is efficient enough
+            while True:
+                chunk = file.read(packet_size)
+                if not chunk:
+                    break
+                conn.write_packet(chunk)
+    except OSError as e:
+        raise err.OperationalError(
+            ER.FILE_NOT_FOUND,
+            f"Can't open file '{filename}': {e}",
+        )
