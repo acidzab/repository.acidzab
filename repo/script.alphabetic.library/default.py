@@ -20,7 +20,6 @@ album_sort = 'album'
 albums_result = 'albums'
 albums_api_name = 'GetAlbums'
 non_alphabetical_folder = '#0'
-missing_artist = '[Missing Tag]'
 
 albums_default_icon = 'DefaultMusicAlbums.png'
 compilations_default_icon = 'DefaultMusicCompilations.png'
@@ -121,17 +120,6 @@ def get_folder_path(base_path, values, sort_field, media_type):
         },
         "type": media_type
     }
-    if media_type == artists_result:
-        missing_artist_filter = {
-            "field": "artist",
-            "operator": "isnot",
-            "value": missing_artist
-        }
-        xsp_rules = xsp_rule.get('rules')
-        xsp_and_filters_list = xsp_rules.get('and')
-        xsp_and_filters_list.append(missing_artist_filter)
-        xsp_rules['and'] = xsp_and_filters_list
-        xsp_rule['rules'] = xsp_rules
 
     json_xsp_rule = json.dumps(xsp_rule, separators=(',', ':'), ensure_ascii=False)
     encoded_xsp = encode_string(json_xsp_rule)
