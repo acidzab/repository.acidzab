@@ -10,40 +10,27 @@ import xbmc
 import xbmcaddon
 import xbmcvfs
 
-alphabetical_artists_special_path = 'special://masterprofile/library/music/artistialfabetici/'
 alphabetical_albums_special_path = 'special://masterprofile/library/music/albumalfabetici/'
 alphabetical_compilations_special_path = 'special://masterprofile/library/music/compilationalfabetiche/'
 
-local_alphabetical_artists = xbmcvfs.translatePath(alphabetical_artists_special_path)
 local_alphabetical_albums = xbmcvfs.translatePath(alphabetical_albums_special_path)
 local_alphabetical_compilations = xbmcvfs.translatePath(alphabetical_compilations_special_path)
 
-artist_sort = 'artist'
 album_sort = 'album'
-artists_result = 'artists'
 albums_result = 'albums'
-artists_api_name = 'GetArtists'
 albums_api_name = 'GetAlbums'
 non_alphabetical_folder = '#0'
 missing_artist = '[Missing Tag]'
 
-artists_default_icon = 'DefaultMusicArtists.png'
 albums_default_icon = 'DefaultMusicAlbums.png'
 compilations_default_icon = 'DefaultMusicCompilations.png'
 
 compilation_folder_path = 'musicdb://compilations/?xsp='
-artist_folder_path = 'musicdb://artists/?xsp='
 album_folder_path = 'musicdb://albums/?compilation=false&xsp='
 
 
 def log(msg):
     xbmc.log(str(msg), xbmc.LOGDEBUG)
-
-
-def get_artists():
-    artists_response = get_items(artists_api_name, False, artist_sort)
-    artists = artists_response.get('result').get(artists_result)
-    return artists
 
 
 def get_albums():
@@ -190,10 +177,6 @@ def get_first_letters(medias):
 
 def preload_alphabetical_nodes():
     # inizializzo i vari nodi
-    if not xbmcvfs.exists(local_alphabetical_artists):
-        log(f'Inizializzo Artisti')
-        init_node(local_alphabetical_artists, artists_default_icon, '133', 30)
-
     if not xbmcvfs.exists(local_alphabetical_albums):
         log(f'Inizializzo Album')
         init_node(local_alphabetical_albums, albums_default_icon, '132', 20)
@@ -202,16 +185,12 @@ def preload_alphabetical_nodes():
         log(f'Inizializzo Compilation')
         init_node(local_alphabetical_compilations, compilations_default_icon, '521', 60)
 
-    artists = get_artists()
     albums = get_albums()
     compilations = get_compilations()
 
-    artists_first_letters = get_first_letters(artists)
     albums_first_letters = get_first_letters(albums)
     compilations_first_letters = get_first_letters(compilations)
 
-    generate_alphabetical_nodes(artists_first_letters, alphabetical_artists_special_path, artist_folder_path,
-                                artist_sort, artists_result)
     generate_alphabetical_nodes(albums_first_letters, alphabetical_albums_special_path, album_folder_path, album_sort,
                                 albums_result)
     generate_alphabetical_nodes(compilations_first_letters, alphabetical_compilations_special_path,
