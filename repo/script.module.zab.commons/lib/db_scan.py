@@ -101,11 +101,10 @@ def execute_from_central_kodi_webserver(db_params, payload):
         'content-type': 'application/json;',
     }
     central_kodi_host = db_params.get('serverhost')
-    central_kodi_server_port = db_params.get('rpcserverport')
     central_kodi_server_user = db_params.get('rpcserveruser')
     central_kodi_server_password = db_params.get('rpcserverpass')
     basic_auth = auth.HTTPBasicAuth(central_kodi_server_user, central_kodi_server_password)
-    kodi_instance = f'http://{central_kodi_host}:{central_kodi_server_port}/jsonrpc'
+    kodi_instance = f'{central_kodi_host}'
     response = requests.post(kodi_instance, headers=headers, json=payload, auth=basic_auth)
     response.raise_for_status()
     return response.json()
