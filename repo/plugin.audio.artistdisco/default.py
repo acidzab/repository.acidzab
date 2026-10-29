@@ -39,7 +39,7 @@ CATEGORIES = [
     ("ep", "EP", lambda n: [_is("albumartist", "is", n), _is("type", "contains", "ep")]),
     ("single", "Singoli", lambda n: [_is("albumartist", "is", n), _is("type", "contains", "single")]),
     ("compilation", "Compilation", lambda n: [_is("albumartist", "is", n), _is("type", "contains", "compilation")]),
-    ("djmix", "DJ Mix", lambda n: [_is("albumartist", "is", n), _is("type", "contains", "dj-mix")]),
+    ("djmix", "DJ Mix", lambda n: [_is("albumartist", "is", n), _is("type", "contains", "dj mix")]),
     ("appears", "Appare su", lambda n: [_is("artist", "is", n), _is("albumartist", "isnot", n)]),
 ]
 
