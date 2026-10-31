@@ -9,8 +9,6 @@ import xbmcgui
 import xbmcplugin
 import xbmcvfs
 
-HANDLE = int(sys.argv[1])
-BASE = sys.argv[0]
 
 ALBUM_ARTISTS_ONLY = True   # False: include anche artisti presenti solo come song artist
 HIDE_EMPTY = True
@@ -192,5 +190,7 @@ def router():
     else:
         list_letters()
 
-
-router()
+if __name__ == '__main__':
+    HANDLE = int(sys.argv[1])
+    BASE = sys.argv[0]
+    router()
