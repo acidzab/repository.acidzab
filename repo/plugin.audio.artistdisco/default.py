@@ -18,6 +18,7 @@ LETTERS = [chr(c) for c in range(ord("A"), ord("Z") + 1)]
 PROPS = ["thumbnail", "description", "genre"]
 ICON_FOLDER = {"icon": "DefaultFolder.png", "thumb": "DefaultFolder.png"}
 ICON_ARTIST = "DefaultArtist.png"
+ICON_ARTIST_NODE = "DefaultMusicArtists.png"
 ALPHANUMERIC_FOLDER = "#0"
 ARTISTS_NODE_LOCAL_PATH = xbmcvfs.translatePath(f'special://masterprofile/library/music/artists.xml')
 
@@ -173,7 +174,7 @@ def generate_artists_folder_node():
     label = ET.SubElement(node, 'label')
     label.text = '133'
     icon = ET.SubElement(node, 'icon')
-    icon.text = ICON_ARTIST
+    icon.text = ICON_ARTIST_NODE
     path = ET.SubElement(node, 'path')
     path.text = f'plugin://plugin.audio.artistdisco/'
     node_xml = minidom.parseString(ET.tostring(node, encoding='UTF-8')).toprettyxml()
@@ -182,8 +183,6 @@ def generate_artists_folder_node():
 
 
 def router():
-    if not xbmcvfs.exists(ARTISTS_NODE_LOCAL_PATH):
-        generate_artists_folder_node()
     p = dict(parse_qsl(sys.argv[2][1:]))
     action = p.get("action")
     if action == "letter":
