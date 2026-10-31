@@ -1,10 +1,14 @@
+import os
 import sys
 import json
+import xml.etree.ElementTree as ET
 from urllib.parse import urlencode, parse_qsl, quote
+from xml.dom import minidom
 
 import xbmc
 import xbmcgui
 import xbmcplugin
+import xbmcvfs
 
 HANDLE = int(sys.argv[1])
 BASE = sys.argv[0]
@@ -12,10 +16,11 @@ BASE = sys.argv[0]
 ALBUM_ARTISTS_ONLY = True   # False: include anche artisti presenti solo come song artist
 HIDE_EMPTY = True
 LETTERS = [chr(c) for c in range(ord("A"), ord("Z") + 1)]
-PROPS = ["thumbnail", "fanart", "description", "genre", "disambiguation"]
+PROPS = ["thumbnail", "description", "genre"]
 ICON_FOLDER = {"icon": "DefaultFolder.png", "thumb": "DefaultFolder.png"}
 ICON_ARTIST = "DefaultArtist.png"
 ALPHANUMERIC_FOLDER = "#0"
+ARTISTS_NODE_LOCAL_PATH = xbmcvfs.translatePath(f'special://masterprofile/library/music/artists.xml')
 
 FORCE_VIEW = True
 # skin -> {tipo contenuto: id del controllo view}; gli id vanno verificati per ogni skin/versione
@@ -97,11 +102,9 @@ def set_view(kind):
     xbmc.executebuiltin("Container.SetViewMode(%d)" % vid)
 
 
-def _folder_item(label, fanart=""):
+def _folder_item(label):
     li = xbmcgui.ListItem(label)
     art = dict(ICON_FOLDER)
-    if fanart:
-        art["fanart"] = fanart
     li.setArt(art)
     return li
 
@@ -120,8 +123,7 @@ def add_artist(a):
     name = a.get("artist") or a.get("label", "")
     li = xbmcgui.ListItem(name)
     thumb = a.get("thumbnail") or ICON_ARTIST
-    li.setArt({"thumb": thumb, "icon": thumb, "fanart": a.get("fanart", "")})
-    li.setLabel2(a.get("disambiguation", ""))
+    li.setArt({"thumb": thumb, "icon": thumb})
     tag = li.getMusicInfoTag()
     tag.setArtist(name)
     # Estuary (pannello info): bio da Artist_Description se DBType=artist, altrimenti lista release via DBID
@@ -130,7 +132,6 @@ def add_artist(a):
     genres = " / ".join(a.get("genre", []))
     li.setProperty("Artist_Description", a.get("description", ""))
     li.setProperty("Artist_Genre", genres)
-    li.setProperty("Artist_Disambiguation", a.get("disambiguation", ""))
     li.setProperty("InfoListPath", "musicdb://artists/%d/" % a["artistid"])  # letta da InfoListPathVar della skin
     xbmcplugin.addDirectoryItem(
         HANDLE, url(action="artist", id=a["artistid"], name=name), li, True)
@@ -150,7 +151,7 @@ def list_letter(letter):
             "albumartistsonly": ALBUM_ARTISTS_ONLY, "properties": PROPS, "sort": SORT,
             "filter": {"field": "artist", "operator": "startswith", "value": letter}})
         for a in res.get("artists", []):
-            if bucket(a["artist"]) == letter:  # il LIKE di MariaDB e' accent-insensitive
+            if bucket(a["artist"]) == letter:  # il LIKE di MariaDB è accent-insensitive
                 add_artist(a)
     xbmcplugin.endOfDirectory(HANDLE, cacheToDisc=False)
     set_view("artists")
@@ -159,20 +160,31 @@ def list_letter(letter):
 def list_artist(artist_id, name):
     xbmcplugin.setContent(HANDLE, "files")
     xbmcplugin.setPluginCategory(HANDLE, name)
-    fanart = rpc("AudioLibrary.GetArtistDetails", {
-        "artistid": int(artist_id), "properties": ["fanart"]
-    }).get("artistdetails", {}).get("fanart", "")
-
     for _key, label, build in CATEGORIES:
         path = musicdb_path(build(name), artist_id)
         if HIDE_EMPTY and not has_items(path):
             continue
-        xbmcplugin.addDirectoryItem(HANDLE, path, _folder_item(label, fanart), True)
+        xbmcplugin.addDirectoryItem(HANDLE, path, _folder_item(label), True)
     xbmcplugin.endOfDirectory(HANDLE, cacheToDisc=False)
     set_view("files")
 
+def generate_artists_folder_node():
+    destination_path = xbmcvfs.translatePath(ARTISTS_NODE_LOCAL_PATH)
+    node = ET.Element('node', order=str(30), type='folder')
+    label = ET.SubElement(node, 'label')
+    label.text = '133'
+    icon = ET.SubElement(node, 'icon')
+    icon.text = ICON_ARTIST
+    path = ET.SubElement(node, 'path')
+    path.text = f'plugin://plugin.audio.artistdisco/'
+    node_xml = minidom.parseString(ET.tostring(node, encoding='UTF-8')).toprettyxml()
+    with xbmcvfs.File(destination_path, 'w') as genre_file:
+        genre_file.write(node_xml)
+
 
 def router():
+    if not xbmcvfs.exists(ARTISTS_NODE_LOCAL_PATH):
+        generate_artists_folder_node()
     p = dict(parse_qsl(sys.argv[2][1:]))
     action = p.get("action")
     if action == "letter":
