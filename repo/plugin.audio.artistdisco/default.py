@@ -129,6 +129,7 @@ def add_artist(a):
     tag.setGenres(a.get("genre", []))
     genres = " / ".join(a.get("genre", []))
     li.setProperty("Artist_Description", a.get("description", ""))
+    li.setProperty("artist_musicid", str(a["artistid"]))  # permette a Kodi di aprire il dialogo info artista
     li.setProperty("Artist_Genre", genres)
     li.setProperty("InfoListPath", "musicdb://artists/%d/" % a["artistid"])  # letta da InfoListPathVar della skin
     xbmcplugin.addDirectoryItem(
