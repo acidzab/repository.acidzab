@@ -10,7 +10,6 @@ import xbmcplugin
 import xbmcvfs
 
 
-ALBUM_ARTISTS_ONLY = True   # False: include anche artisti presenti solo come song artist
 HIDE_EMPTY = True
 LETTERS = [chr(c) for c in range(ord("A"), ord("Z") + 1)]
 PROPS = ["thumbnail", "description", "genre"]
@@ -75,8 +74,7 @@ def bucket(name):
 
 
 def all_artists_light():
-    return rpc("AudioLibrary.GetArtists", {
-        "albumartistsonly": ALBUM_ARTISTS_ONLY, "sort": SORT}).get("artists", [])
+    return rpc("AudioLibrary.GetArtists", {"sort": SORT}).get("artists", [])
 
 
 def set_view(kind):
@@ -146,8 +144,7 @@ def list_letter(letter):
                     "artistid": a["artistid"], "properties": PROPS}
                                ).get("artistdetails", a))
     else:
-        res = rpc("AudioLibrary.GetArtists", {
-            "albumartistsonly": ALBUM_ARTISTS_ONLY, "properties": PROPS, "sort": SORT,
+        res = rpc("AudioLibrary.GetArtists", {"properties": PROPS, "sort": SORT,
             "filter": {"field": "artist", "operator": "startswith", "value": letter}})
         for a in res.get("artists", []):
             if bucket(a["artist"]) == letter:  # il LIKE di MariaDB è accent-insensitive
