@@ -1,6 +1,5 @@
-import os
-import sys
 import json
+import sys
 import xml.etree.ElementTree as ET
 from urllib.parse import urlencode, parse_qsl, quote
 from xml.dom import minidom
