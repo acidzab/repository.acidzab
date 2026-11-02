@@ -1,5 +1,6 @@
 import json
 import sqlite3
+from datetime import datetime, timedelta
 
 import db_scan
 import pymysql
@@ -59,6 +60,24 @@ def log(msg):
 def execute_addon_with_builtin(addon_id, params):
     builtin_cmd = f'RunAddon({addon_id},{params})'
     xbmc.executebuiltin(builtin_cmd, True)
+
+
+def get_properties(call_central, db_params):
+    json_payload = {
+        "id": "1",
+        "jsonrpc": "2.0",
+        "method": "AudioLibrary.GetProperties",
+        "params": {
+            "properties": [
+                "librarylastupdated"
+            ]
+        }
+    }
+    if call_central:
+        props = db_scan.execute_from_central_kodi_webserver(db_params, json_payload).get('result')
+    else:
+        props = json.loads(xbmc.executeJSONRPC(json.dumps(json_payload, ensure_ascii=False))).get('result')
+    return props
 
 
 def scan_folders(paths_to_scan):
@@ -480,6 +499,67 @@ def get_artworks_by_key(id_albums, media_type, db_params, call_central, music_db
     return artworks_by_key
 
 
+def get_artists_to_sync(dt_last_scanned_local, music_db_name, db_params):
+    query = '''
+            SELECT dateAdded,
+                   idArtist,
+                   strMusicBrainzArtistID
+            FROM artist
+            WHERE dateAdded BETWEEN %s AND %s
+              AND idArtist NOT IN (1,8)
+            ORDER BY dateAdded'''
+    from_date_str_local = datetime.strptime(dt_last_scanned_local, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
+    to_date = datetime.now() + timedelta(days=1)
+    to_date_str = to_date.strftime('%Y-%m-%d')
+    central_results = []
+    local_results = []
+    artists_to_sync = []
+    host = db_params.get('host')
+    username = db_params.get('user')
+    password = db_params.get('pass')
+    central_db = pymysql.connect(host=host, user=username, password=password, database=music_db_name, port=3306,
+                                 cursorclass=pymysql.cursors.DictCursor, connect_timeout=18000)
+    with central_db:
+        with central_db.cursor() as central_cursor:
+            central_cursor.execute(query, (from_date_str_local, to_date_str))
+            log(central_cursor.mogrify(query, (from_date_str_local, to_date_str)))
+            central_results.extend(central_cursor.fetchall())
+
+    central_dt_added_by_mbid = {}
+    if central_results:
+        central_dt_added_by_mbid = {
+            result.get('strMusicBrainzArtistID'): {'idArtist': result.get('idArtist'),
+                                                  'dateAdded': result.get('dateAdded')} for result in central_results
+        }
+    music_db_path = db_scan.get_music_db_path()
+    music_db = sqlite3.connect(music_db_path)
+    music_db.row_factory = sqlite3.Row
+    music_db.set_trace_callback(log)
+    music_db_cursor = music_db.cursor()
+    query = query.replace('%s', '?')
+    music_db_cursor.execute(query, (from_date_str_local, to_date_str))
+    local_results.extend(music_db_cursor.fetchall())
+    music_db_cursor.close()
+    music_db.close()
+
+    local_dt_added_by_mbid = {}
+    if local_results:
+        local_dt_added_by_mbid = {
+            result['strMusicBrainzArtistID']: {'idArtist': result['idArtist'],
+                                              'dateAdded': result['dateAdded']} for result in local_results
+        }
+
+    for mbid in central_dt_added_by_mbid.keys():
+        central_info = central_dt_added_by_mbid.get(mbid)
+        local_info = local_dt_added_by_mbid.get(mbid)
+        local_dt_added = local_info.get('dateAdded') if local_info else None
+        central_dt_added = central_info.get('dateAdded') if central_info else None
+        if central_dt_added and (not local_dt_added or local_dt_added != central_dt_added):
+            artist_to_sync = {'artistid': central_info.get('idArtist'), 'localartistid': local_info.get('idArtist')}
+            artists_to_sync.append(artist_to_sync)
+    return artists_to_sync
+
+
 def get_artists_data(id_artists_set, db_params, call_central, music_db_name):
     id_artists = []
     artists_data = []
@@ -512,6 +592,11 @@ def get_artists_data(id_artists_set, db_params, call_central, music_db_name):
     if id_artists_set:
         id_artists = list(id_artists_set)
         artist_in_condition = ''' WHERE idArtist IN (%s)'''
+        artist_query += artist_in_condition
+        artist_discography_query += artist_in_condition
+    else:
+        ## escludo volutamente il missing e il various (Kodi li piazza sistematicamente come id 1 e 8)
+        artist_in_condition = ''' WHERE idArtist NOT IN (1, 8)'''
         artist_query += artist_in_condition
         artist_discography_query += artist_in_condition
 
@@ -829,6 +914,8 @@ def force_path_rescan(paths_to_scan):
 def align_media_to_central_db(paths, local_paths, exec_mode, db_params):
     progress = xbmcgui.DialogProgressBG()
     try:
+        local_props = get_properties(False, db_params)
+        local_last_scanned = local_props.get('librarylastupdated')
         media_by_id = get_media_details_from_directory(paths, local_paths, db_params)
         music_db_name = db_scan.get_music_db_name()
         albums_id_central = []
@@ -840,6 +927,7 @@ def align_media_to_central_db(paths, local_paths, exec_mode, db_params):
         arts_to_insert = set()
         arts_to_update = set()
         arts_to_remove = set()
+        artists_to_sync = get_artists_to_sync(local_last_scanned, music_db_name, db_params)
 
         for media_id in media_by_id:
             # id per album e brani
@@ -870,6 +958,12 @@ def align_media_to_central_db(paths, local_paths, exec_mode, db_params):
             artists_id_local.update(media.get('localartistid'))
             if media.get('localalbumartistid'):
                 artists_id_local.update(media.get('localalbumartistid'))
+
+        for artist_to_sync in artists_to_sync:
+            if artist_to_sync.get('artistid'):
+                artists_id_central.update(artist_to_sync.get('artistid'))
+            if artist_to_sync.get('localartistid'):
+                artists_id_local.update(artist_to_sync.get('localartistid'))
 
         # Allineo i dati degli artisti col db centrale
         progress.create(addon_name, message='Allineo i dati artista')
