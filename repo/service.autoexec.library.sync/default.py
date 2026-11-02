@@ -239,6 +239,36 @@ def init_music_database():
         execute_addon_with_builtin('service.scan.checker')
 
 
+def common_url_prefix(urls):
+    parts = [u.split("/") for u in urls]
+    common = []
+    for segs in zip(*parts):
+        if all(s == segs[0] for s in segs):
+            common.append(segs[0])
+        else:
+            break
+    return "/".join(common)
+
+
+def get_album_common_path(song_paths, sources):
+    if not song_paths:
+        return None
+
+    # confronto per componenti: non taglia a metà un nome e preserva il protocollo.
+    # Si parte dalle cartelle dei brani, così anche con un solo brano
+    # (o brani identici) si ottiene la cartella e non il file.
+    common_prefix = common_url_prefix([p.rsplit('/', 1)[0] for p in song_paths])
+
+    if '/' not in common_prefix:
+        return None
+    common_prefix += '/'
+
+    if any(common_prefix.startswith(source) and common_prefix != source for source in sources):
+        return common_prefix
+
+    return None
+
+
 def get_album_path_by_id(id_albums, use_central, db_params, music_db_name, fetch_all_albums, sources, central_paths):
     use_webdav = db_params.get('sourcetype') == 'webdav'
     music_db_path = db_scan.get_music_db_path()
@@ -308,17 +338,13 @@ def get_album_path_by_id(id_albums, use_central, db_params, music_db_name, fetch
             paths_to_update = []
             paths = paths_by_album.get(id_album)
             if paths:
-                common_prefix = os.path.commonprefix(paths)
-                # commonprefix può tagliare a metà un nome, tronchiamo all'ultimo slash
-                if '/' in common_prefix:
-                    common_prefix = common_prefix[:common_prefix.rfind('/') + 1]
-                    if any(common_prefix.startswith(source) and common_prefix != source for source in
-                           sources) and common_prefix in central_paths:
-                        paths_to_update.append(common_prefix)
-                        album_path_by_id[id_album] = paths_to_update
-                    else:
-                        # passo i path duplicati e via per evitare danni grossi
-                        album_path_by_id[id_album] = paths
+                album_common_path = get_album_common_path(paths, sources)
+                if album_common_path and album_common_path in central_paths:
+                    paths_to_update.append(album_common_path)
+                    album_path_by_id[id_album] = paths_to_update
+                else:
+                    # passo i path duplicati e via per evitare danni grossi
+                    album_path_by_id[id_album] = paths
     return album_path_by_id
 
 

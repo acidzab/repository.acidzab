@@ -339,17 +339,29 @@ def get_thumbs_to_cache(id_albums, exec_mode,
     return thumbs_to_cache
 
 
+def common_url_prefix(urls):
+    parts = [u.split("/") for u in urls]
+    common = []
+    for segs in zip(*parts):
+        if all(s == segs[0] for s in segs):
+            common.append(segs[0])
+        else:
+            break
+    return "/".join(common)
+
+
 def get_album_common_path(song_paths, sources):
     if not song_paths:
         return None
 
-    common_prefix = os.path.commonprefix(song_paths)
+    # confronto per componenti: non taglia a metà un nome e preserva il protocollo.
+    # Si parte dalle cartelle dei brani, così anche con un solo brano
+    # (o brani identici) si ottiene la cartella e non il file.
+    common_prefix = common_url_prefix([p.rsplit('/', 1)[0] for p in song_paths])
 
-    # commonprefix può tagliare a metà un nome, tronchiamo all'ultimo slash
-    if '/' in common_prefix:
-        common_prefix = common_prefix[:common_prefix.rfind('/') + 1]
-    else:
+    if '/' not in common_prefix:
         return None
+    common_prefix += '/'
 
     if any(common_prefix.startswith(source) and common_prefix != source for source in sources):
         return common_prefix
