@@ -952,10 +952,12 @@ def align_media_to_central_db(paths, local_paths, exec_mode, db_params):
                 if media.get('type') == 'song' and media_id not in songs_id_local:
                     songs_id_local.append(media_id)
             # id per gli artisti
-            artists_id_central.update(media.get('artistid'))
+            if media.get('artistid'):
+                artists_id_central.update(media.get('artistid'))
             if media.get('albumartistid'):
-                artists_id_local.update(media.get('albumartistid'))
-            artists_id_local.update(media.get('localartistid'))
+                artists_id_central.update(media.get('albumartistid'))
+            if media.get('localartistid'):
+                artists_id_local.update(media.get('localartistid'))
             if media.get('localalbumartistid'):
                 artists_id_local.update(media.get('localalbumartistid'))
 
