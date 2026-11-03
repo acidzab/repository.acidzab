@@ -6,6 +6,6 @@ name = "pypi"
 [packages]
 pymysql = "*"
 kodistubs = "*"
+requests = "*"
 
 [dev-packages]
-
