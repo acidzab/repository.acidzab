@@ -192,15 +192,6 @@ def get_releases_to_align(db_params, music_db_name, sources, central_paths):
     return paths_to_scan
 
 
-def check_for_scans(db_params):
-    table = db_params.get('table')
-    url = f'{db_params.get('scanserver')}/scans/{table}/status'
-    scan_status = requests.get(url)
-    scan_status.raise_for_status()
-    scan_results = scan_status.json()
-    return scan_results and scan_results.get('scan')
-
-
 def get_sources(db_params):
     use_webdav = db_params.get('sourcetype') == 'webdav'
     json_payload = {
