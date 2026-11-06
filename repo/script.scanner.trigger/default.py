@@ -554,7 +554,7 @@ def get_artists_to_sync(dt_last_scanned_local, music_db_name, db_params):
         local_info = local_dt_added_by_mbid.get(mbid)
         local_dt_added = local_info.get('dateAdded') if local_info else None
         central_dt_added = central_info.get('dateAdded') if central_info else None
-        if central_dt_added and (not local_dt_added or local_dt_added != central_dt_added):
+        if central_info and local_info and central_dt_added and (not local_dt_added or local_dt_added != central_dt_added):
             artist_to_sync = {'artistid': central_info.get('idArtist'), 'localartistid': local_info.get('idArtist')}
             artists_to_sync.append(artist_to_sync)
     return artists_to_sync
