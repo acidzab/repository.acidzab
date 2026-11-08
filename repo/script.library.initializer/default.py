@@ -66,8 +66,6 @@ def get_paths_for_init(db_params):
     use_webdav = db_params.get('sourcetype') == 'webdav'
     results = db_scan.execute_from_db_gateway(db_params, '/kodi-clients/library-installer-paths', 'GET')
     central_results = {result.get('strPath') for result in results}
-    log(results)
-    log(central_results)
     music_db_path = db_scan.get_music_db_path()
     music_db = sqlite3.connect(music_db_path)
     music_db.row_factory = sqlite3.Row
