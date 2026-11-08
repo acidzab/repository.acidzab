@@ -1,8 +1,7 @@
 {
-  "host": "",
-  "user": "",
-  "pass": "",
-  "port": 3306,
+  "dbgateway": "",
+  "dbgatewayuser": "",
+  "dbgatewaypass": "",
   "serverhost": "",
   "rpcserveruser": "",
   "rpcserverpass": "",

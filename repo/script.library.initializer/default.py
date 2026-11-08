@@ -1,7 +1,6 @@
 import sqlite3
 
 import db_scan
-import pymysql
 import xbmc
 import xbmcaddon
 
@@ -64,20 +63,11 @@ def get_paths_for_init(db_params):
             SELECT strPath
             FROM ranked
             ORDER BY priority, strPath'''
-    music_db_name = db_scan.get_music_db_name()
-    host = db_params.get('host')
-    username = db_params.get('user')
-    password = db_params.get('pass')
     use_webdav = db_params.get('sourcetype') == 'webdav'
-    central_db = pymysql.connect(host=host, user=username, password=password, database=music_db_name, port=3306,
-                                 cursorclass=pymysql.cursors.DictCursor, connect_timeout=18000)
-    with central_db:
-        with central_db.cursor() as central_cursor:
-            central_cursor.execute(query)
-            log(central_cursor.mogrify(query))
-            results = central_cursor.fetchall()
-
-    results = {result.get('strPath') for result in results}
+    results = db_scan.execute_from_db_gateway(db_params, '/kodi-clients/library-installer-paths', 'GET')
+    central_results = {result.get('strPath') for result in results}
+    log(results)
+    log(central_results)
     music_db_path = db_scan.get_music_db_path()
     music_db = sqlite3.connect(music_db_path)
     music_db.row_factory = sqlite3.Row
@@ -89,7 +79,7 @@ def get_paths_for_init(db_params):
     music_db.close()
     local_results = {result['strPath'] for result in local_results}
     paths_to_scan = []
-    for path in results:
+    for path in central_results:
         path_to_check = path if not use_webdav else db_scan.convert_from_smb_to_davs(path)
         if path_to_check not in local_results:
             paths_to_scan.append(path)

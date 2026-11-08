@@ -1,5 +1,4 @@
 import json
-import os
 import re
 import sys
 from urllib.parse import unquote, quote, parse_qs
@@ -98,7 +97,7 @@ def get_paths_from_params():
 
 def execute_from_central_kodi_webserver(db_params, payload):
     headers = {
-        'content-type': 'application/json;',
+        'content-type': 'application/json;'
     }
     central_kodi_host = db_params.get('serverhost')
     central_kodi_server_user = db_params.get('rpcserveruser')
@@ -108,6 +107,30 @@ def execute_from_central_kodi_webserver(db_params, payload):
     response = requests.post(kodi_instance, headers=headers, json=payload, auth=basic_auth)
     response.raise_for_status()
     return response.json()
+
+
+def execute_from_db_gateway(db_params, api_path, http_verb, payload=None, query_params=None):
+    headers = {
+        'content-type': 'application/json;'
+    }
+    db_gateway_host = db_params.get('dbgateway')
+    db_gateway_user = db_params.get('dbgatewayuser')
+    db_gateway_password = db_params.get('dbgatewaypass')
+    basic_auth = auth.HTTPBasicAuth(db_gateway_user, db_gateway_password)
+    api_to_call = f'{db_gateway_host}{api_path}'
+    if http_verb == 'GET':
+        response = requests.get(api_to_call, headers=headers, auth=basic_auth, params=query_params)
+        response.raise_for_status()
+        return response.json()
+    elif http_verb == 'POST':
+        response = requests.post(api_to_call, headers=headers, json=payload, auth=basic_auth, params=query_params)
+        response.raise_for_status()
+        return response.json()
+    elif http_verb == 'DELETE':
+        response = requests.delete(api_to_call, headers=headers, json=payload, auth=basic_auth, params=query_params)
+        response.raise_for_status()
+        return response.json()
+    return None
 
 
 def get_db_params():

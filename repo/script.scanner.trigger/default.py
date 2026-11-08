@@ -3,7 +3,6 @@ import sqlite3
 from datetime import datetime, timedelta
 
 import db_scan
-import pymysql
 import xbmc
 import xbmcaddon
 import xbmcgui
@@ -145,7 +144,7 @@ def get_media_paths_to_process(media_details_by_filename, path, call_central, db
     return media_details_by_filename
 
 
-def get_all_medias(media_type, db_params, music_db_name):
+def get_all_medias(media_type, db_params):
     """
     Aggrega dati di album o brani tra database MariaDB centrale e SQLite locale.
     Per gli album usa MusicBrainz ID, per i brani usa tupla (titolo, album_mbid).
@@ -154,12 +153,12 @@ def get_all_medias(media_type, db_params, music_db_name):
         raise ValueError("media_type deve essere 'album' o 'song'")
 
     if media_type == 'album':
-        return _get_albums_aggregated(db_params, music_db_name)
+        return _get_albums_aggregated(db_params)
     else:
-        return _get_songs_aggregated(db_params, music_db_name)
+        return _get_songs_aggregated(db_params)
 
 
-def _get_albums_aggregated(db_params, music_db_name):
+def _get_albums_aggregated(db_params):
     """Aggrega album usando MusicBrainz Album ID"""
     album_query = '''
                   SELECT album.idAlbum,
@@ -169,17 +168,7 @@ def _get_albums_aggregated(db_params, music_db_name):
 
     # Recupera dati centrali
     central_albums = {}
-    central_results = []
-    host = db_params.get('host')
-    username = db_params.get('user')
-    password = db_params.get('pass')
-    central_db = pymysql.connect(host=host, user=username, password=password, database=music_db_name, port=3306,
-                                 cursorclass=pymysql.cursors.DictCursor, connect_timeout=18000)
-    with central_db:
-        with central_db.cursor() as central_cursor:
-            central_cursor.execute(album_query)
-            log(central_cursor.mogrify(album_query))
-            central_results.extend(central_cursor.fetchall())
+    central_results = db_scan.execute_from_db_gateway(db_params, '/kodi-clients/albums-aggregated', 'GET')
     if central_results:
         central_albums = {row.get('mbid'): row.get('idAlbum') for row in central_results}
 
@@ -211,7 +200,7 @@ def _get_albums_aggregated(db_params, music_db_name):
     return aggregated_albums
 
 
-def _get_songs_aggregated(db_params, music_db_name):
+def _get_songs_aggregated(db_params):
     """
     Aggrega brani usando tupla (titolo normalizzato, album MBID) come chiave univoca
     """
@@ -225,17 +214,7 @@ def _get_songs_aggregated(db_params, music_db_name):
 
     # Recupera dati centrali
     central_songs = {}
-    central_results = []
-    host = db_params.get('host')
-    username = db_params.get('user')
-    password = db_params.get('pass')
-    central_db = pymysql.connect(host=host, user=username, password=password, database=music_db_name, port=3306,
-                                 cursorclass=pymysql.cursors.DictCursor, connect_timeout=18000)
-    with central_db:
-        with central_db.cursor() as central_cursor:
-            central_cursor.execute(song_query)
-            log(central_cursor.mogrify(song_query))
-            central_results.extend(central_cursor.fetchall())
+    central_results = db_scan.execute_from_db_gateway(db_params, '/kodi-clients/songs-aggregated', 'GET')
     if central_results:
         for row in central_results:
             title = row.get('strTitle')
@@ -406,7 +385,7 @@ def get_songs_by_albums(id_albums, call_central, db_params):
     return songs_by_id_album
 
 
-def get_artworks_by_key(id_albums, media_type, db_params, call_central, music_db_name):
+def get_artworks_by_key(id_albums, media_type, db_params, call_central):
     artworks_by_key = {}
     art_results = []
     album_query = '''
@@ -429,31 +408,20 @@ def get_artworks_by_key(id_albums, media_type, db_params, call_central, music_db
                      AND art.media_type = \'song\''''
     if media_type == 'album':
         query = album_query
+        central_api = '/kodi-clients/albums-with-arts'
     elif media_type == 'song':
         query = song_query
+        central_api = '/kodi-clients/songs-with-arts'
     if id_albums:
         album_in_condition = ''' WHERE album.idAlbum IN (%s)'''
         query += album_in_condition
 
     if call_central:
-        host = db_params.get('host')
-        username = db_params.get('user')
-        password = db_params.get('pass')
-        central_db = pymysql.connect(host=host, user=username, password=password, database=music_db_name, port=3306,
-                                     cursorclass=pymysql.cursors.DictCursor, connect_timeout=18000)
-        with central_db:
-            with central_db.cursor() as central_cursor:
-                if id_albums:
-                    chunks = [id_albums[i:i + 1000] for i in range(0, len(id_albums), 1000)]
-                    for chunk in chunks:
-                        placeholders = ','.join(['%s'] * len(chunk))
-                        central_cursor.execute(query % placeholders, chunk)
-                        log(central_cursor.mogrify(query % placeholders, chunk))
-                        art_results.extend(central_cursor.fetchall())
-                else:
-                    central_cursor.execute(query)
-                    log(central_cursor.mogrify(query))
-                    art_results.extend(central_cursor.fetchall())
+        if id_albums:
+            payload = {'ids': id_albums}
+            art_results = db_scan.execute_from_db_gateway(db_params, central_api, 'POST', payload)
+        else:
+            art_results = db_scan.execute_from_db_gateway(db_params, central_api, 'POST')
         if art_results:
             for art_result in art_results:
                 key = (art_result.get('idAlbum'),
@@ -499,7 +467,7 @@ def get_artworks_by_key(id_albums, media_type, db_params, call_central, music_db
     return artworks_by_key
 
 
-def get_artists_to_sync(dt_last_scanned_local, music_db_name, db_params):
+def get_artists_to_sync(dt_last_scanned_local, db_params):
     query = '''
             SELECT dateAdded,
                    idArtist,
@@ -511,20 +479,10 @@ def get_artists_to_sync(dt_last_scanned_local, music_db_name, db_params):
     from_date_str_local = datetime.strptime(dt_last_scanned_local, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
     to_date = datetime.now() + timedelta(days=1)
     to_date_str = to_date.strftime('%Y-%m-%d')
-    central_results = []
+    query_params = {'last_scan': dt_last_scanned_local}
+    central_results = db_scan.execute_from_db_gateway(db_params, '/kodi-clients/artists-diff-sync', 'GET', query_params=query_params)
     local_results = []
     artists_to_sync = []
-    host = db_params.get('host')
-    username = db_params.get('user')
-    password = db_params.get('pass')
-    central_db = pymysql.connect(host=host, user=username, password=password, database=music_db_name, port=3306,
-                                 cursorclass=pymysql.cursors.DictCursor, connect_timeout=18000)
-    with central_db:
-        with central_db.cursor() as central_cursor:
-            central_cursor.execute(query, (from_date_str_local, to_date_str))
-            log(central_cursor.mogrify(query, (from_date_str_local, to_date_str)))
-            central_results.extend(central_cursor.fetchall())
-
     central_dt_added_by_mbid = {}
     if central_results:
         central_dt_added_by_mbid = {
@@ -560,7 +518,7 @@ def get_artists_to_sync(dt_last_scanned_local, music_db_name, db_params):
     return artists_to_sync
 
 
-def get_artists_data(id_artists_set, db_params, call_central, music_db_name):
+def get_artists_data(id_artists_set, db_params, call_central):
     id_artists = []
     artists_data = []
     discography_by_artist = {}
@@ -596,35 +554,18 @@ def get_artists_data(id_artists_set, db_params, call_central, music_db_name):
         artist_discography_query += artist_in_condition
     else:
         ## escludo volutamente il missing e il various (Kodi li piazza sistematicamente come id 1 e 8)
-        artist_in_condition = ''' WHERE idArtist NOT IN (1, 8)'''
+        artist_in_condition = ''' WHERE idArtist NOT IN (1,8)'''
         artist_query += artist_in_condition
         artist_discography_query += artist_in_condition
 
     if call_central:
-        host = db_params.get('host')
-        username = db_params.get('user')
-        password = db_params.get('pass')
-        central_db = pymysql.connect(host=host, user=username, password=password, database=music_db_name, port=3306,
-                                     cursorclass=pymysql.cursors.DictCursor, connect_timeout=18000)
-        with central_db:
-            with central_db.cursor() as central_cursor:
-                if id_artists:
-                    chunks = [id_artists[i:i + 1000] for i in range(0, len(id_artists), 1000)]
-                    for chunk in chunks:
-                        placeholders = ','.join(['%s'] * len(chunk))
-                        central_cursor.execute(artist_query % placeholders, chunk)
-                        log(central_cursor.mogrify(artist_query % placeholders, chunk))
-                        artist_results.extend(central_cursor.fetchall())
-                        central_cursor.execute(artist_discography_query % placeholders, chunk)
-                        log(central_cursor.mogrify(artist_discography_query % placeholders, chunk))
-                        artist_discography_results.extend(central_cursor.fetchall())
-                else:
-                    central_cursor.execute(artist_query)
-                    log(central_cursor.mogrify(artist_query))
-                    artist_results.extend(central_cursor.fetchall())
-                    central_cursor.execute(artist_discography_query)
-                    log(central_cursor.mogrify(artist_discography_query))
-                    artist_discography_results.extend(central_cursor.fetchall())
+        if id_artists:
+            payload = {'ids': id_artists}
+            artist_results = db_scan.execute_from_db_gateway(db_params, '/kodi-clients/artists-info', 'POST', payload=payload)
+            artist_discography_results = db_scan.execute_from_db_gateway(db_params, '/kodi-clients/artists-discography', 'POST', payload=payload)
+        else:
+            artist_results = db_scan.execute_from_db_gateway(db_params, '/kodi-clients/artists-info', 'POST')
+            artist_discography_results = db_scan.execute_from_db_gateway(db_params, '/kodi-clients/artists-discography', 'POST')
         if artist_discography_results:
             for artist_discography_result in artist_discography_results:
                 discography = discography_by_artist.get(artist_discography_result.get('idArtist'))
@@ -917,7 +858,6 @@ def align_media_to_central_db(paths, local_paths, exec_mode, db_params):
         local_props = get_properties(False, db_params)
         local_last_scanned = local_props.get('librarylastupdated')
         media_by_id = get_media_details_from_directory(paths, local_paths, db_params)
-        music_db_name = db_scan.get_music_db_name()
         albums_id_central = []
         albums_id_local = []
         songs_id_central = []
@@ -927,7 +867,7 @@ def align_media_to_central_db(paths, local_paths, exec_mode, db_params):
         arts_to_insert = set()
         arts_to_update = set()
         arts_to_remove = set()
-        artists_to_sync = get_artists_to_sync(local_last_scanned, music_db_name, db_params)
+        artists_to_sync = get_artists_to_sync(local_last_scanned, db_params)
 
         for media_id in media_by_id:
             # id per album e brani
@@ -969,8 +909,8 @@ def align_media_to_central_db(paths, local_paths, exec_mode, db_params):
 
         # Allineo i dati degli artisti col db centrale
         progress.create(addon_name, message='Allineo i dati artista')
-        central_artists_data = get_artists_data(artists_id_central, db_params, True, music_db_name)
-        local_artists_data = get_artists_data(artists_id_local, db_params, False, music_db_name)
+        central_artists_data = get_artists_data(artists_id_central, db_params, True)
+        local_artists_data = get_artists_data(artists_id_local, db_params, False)
         central_artists_by_mbid = {artist.get('mbid'): artist for artist in central_artists_data}
         local_artists_by_mbid = {artist.get('mbid'): artist for artist in local_artists_data}
         artists_to_update = []
@@ -987,10 +927,10 @@ def align_media_to_central_db(paths, local_paths, exec_mode, db_params):
         update_artist_records(central_artists_by_mbid, local_artists_by_mbid, artists_to_update)
 
         progress.update(message='Allineo gli artwork')
-        central_album_arts = get_artworks_by_key(albums_id_central, 'album', db_params, True, music_db_name)
-        local_album_arts = get_artworks_by_key(albums_id_local, 'album', db_params, False, music_db_name)
-        central_song_arts = get_artworks_by_key(albums_id_central, 'song', db_params, True, music_db_name)
-        local_song_arts = get_artworks_by_key(albums_id_local, 'song', db_params, False, music_db_name)
+        central_album_arts = get_artworks_by_key(albums_id_central, 'album', db_params, True)
+        local_album_arts = get_artworks_by_key(albums_id_local, 'album', db_params, False)
+        central_song_arts = get_artworks_by_key(albums_id_central, 'song', db_params, True)
+        local_song_arts = get_artworks_by_key(albums_id_local, 'song', db_params, False)
 
         if media_by_id:
             for media_id in media_by_id:
@@ -1041,7 +981,7 @@ def align_media_to_central_db(paths, local_paths, exec_mode, db_params):
                                                           local_artist_art,
                                                           local_artist_info.get('id'), 'artist')
         else:
-            processed_arts = process_media_art_with_batching(db_params, music_db_name, central_album_arts,
+            processed_arts = process_media_art_with_batching(db_params, central_album_arts,
                                                              local_album_arts,
                                                              central_song_arts, local_song_arts,
                                                              central_artists_by_mbid,
@@ -1139,7 +1079,7 @@ def set_item_update(arts_to_insert, arts_to_update, arts_to_remove):
         music_db.close()
 
 
-def process_media_art_with_batching(db_params, music_db_name, central_album_arts, local_album_arts,
+def process_media_art_with_batching(db_params, central_album_arts, local_album_arts,
                                     central_song_arts, local_song_arts, central_artists_by_mbid, local_artists_by_mbid,
                                     batch_size=1759):
     """
@@ -1155,8 +1095,8 @@ def process_media_art_with_batching(db_params, music_db_name, central_album_arts
     all_arts_to_update = set()
 
     # Ottieni dati
-    albums = get_all_medias('album', db_params, music_db_name)
-    songs = get_all_medias('song', db_params, music_db_name)
+    albums = get_all_medias('album', db_params)
+    songs = get_all_medias('song', db_params)
 
     # Elabora album in batch
     for i in range(0, len(albums), batch_size):

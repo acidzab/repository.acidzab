@@ -4,8 +4,6 @@ import sqlite3
 from datetime import datetime, timedelta
 
 import db_scan
-import pymysql
-import requests
 import xbmc
 import xbmcaddon
 import xbmcgui
@@ -75,40 +73,20 @@ def get_properties(call_central, db_params):
     return props
 
 
-def get_central_paths(db_params, music_db_name):
-    query = 'SELECT strPath FROM path'
-    query_results = []
-    host = db_params.get('host')
-    username = db_params.get('user')
-    password = db_params.get('pass')
-    central_db = pymysql.connect(host=host, user=username, password=password, database=music_db_name, port=3306,
-                                 cursorclass=pymysql.cursors.DictCursor, connect_timeout=18000)
-    with central_db:
-        with central_db.cursor() as central_cursor:
-            central_cursor.execute(query)
-            log(central_cursor.mogrify(query))
-            query_results.extend(central_cursor.fetchall())
-    paths = {result['strPath'] for result in query_results}
+def get_central_paths(db_params):
+    query_results = db_scan.execute_from_db_gateway(db_params, '/kodi-clients/library-paths', 'GET')
+    paths = {result.get('strPath') for result in query_results}
     return paths
 
 
-def get_album_infos(use_central, db_params, music_db_name, sources, central_paths):
+def get_album_infos(use_central, db_params, sources, central_paths):
     music_db_path = db_scan.get_music_db_path()
     album_infos = []
     query = '''SELECT idAlbum, strMusicBrainzAlbumID
                FROM album'''
     query_results = []
     if use_central:
-        host = db_params.get('host')
-        username = db_params.get('user')
-        password = db_params.get('pass')
-        central_db = pymysql.connect(host=host, user=username, password=password, database=music_db_name, port=3306,
-                                     cursorclass=pymysql.cursors.DictCursor, connect_timeout=18000)
-        with central_db:
-            with central_db.cursor() as central_cursor:
-                central_cursor.execute(query)
-                log(central_cursor.mogrify(query))
-                query_results.extend(central_cursor.fetchall())
+        query_results = db_scan.execute_from_db_gateway(db_params, '/kodi-clients/albums-info', 'GET')
     else:
         music_db = sqlite3.connect(music_db_path)
         music_db.row_factory = sqlite3.Row
@@ -119,8 +97,7 @@ def get_album_infos(use_central, db_params, music_db_name, sources, central_path
         music_db_cursor.close()
         music_db.close()
     if query_results:
-        paths_by_id_album = get_album_path_by_id(list(), use_central, db_params, music_db_name, True,
-                                                 sources, central_paths)
+        paths_by_id_album = get_album_path_by_id(list(), use_central, db_params, True, sources, central_paths)
         for result in query_results:
             album_info = {'mbid': result['strMusicBrainzAlbumID'], 'path': paths_by_id_album.get(result['idAlbum'])}
             album_infos.append(album_info)
@@ -144,9 +121,9 @@ def sync_playlists_to_central_path(playlist_source, db_params):
                 xbmcvfs.delete(f'special://profile/playlists/music/{local_playlist}')
 
 
-def get_releases_to_align(db_params, music_db_name, sources, central_paths):
-    central_albums = get_album_infos(True, db_params, music_db_name, sources, central_paths)
-    local_albums = get_album_infos(False, db_params, music_db_name, sources, central_paths)
+def get_releases_to_align(db_params, sources, central_paths):
+    central_albums = get_album_infos(True, db_params, sources, central_paths)
+    local_albums = get_album_infos(False, db_params, sources, central_paths)
     # Crea dizionari con mbid come chiave e set di path come valore
     central_dict = {}
     for album in central_albums:
@@ -215,8 +192,7 @@ def get_sources(db_params):
 
 def init_music_database():
     db_params = db_scan.get_db_params()
-    music_db_name = db_scan.get_music_db_name()
-    paths_to_scan = sync_paths_to_scan(db_params, music_db_name)
+    paths_to_scan = sync_paths_to_scan(db_params)
     params = '?mode=init'
     if paths_to_scan and not xbmc.getCondVisibility('Library.IsScanningMusic'):
         query_string = ';'.join([f"path={path}" for path in paths_to_scan if path])
@@ -260,7 +236,7 @@ def get_album_common_path(song_paths, sources):
     return None
 
 
-def get_album_path_by_id(id_albums, use_central, db_params, music_db_name, fetch_all_albums, sources, central_paths):
+def get_album_path_by_id(id_albums, use_central, db_params,fetch_all_albums, sources, central_paths):
     use_webdav = db_params.get('sourcetype') == 'webdav'
     music_db_path = db_scan.get_music_db_path()
     query = '''
@@ -277,25 +253,11 @@ def get_album_path_by_id(id_albums, use_central, db_params, music_db_name, fetch
     id_albums_subquery = 'SELECT idAlbum FROM album'
     query_results = []
     if use_central:
-        host = db_params.get('host')
-        username = db_params.get('user')
-        password = db_params.get('pass')
-        central_db = pymysql.connect(host=host, user=username, password=password, database=music_db_name, port=3306,
-                                     cursorclass=pymysql.cursors.DictCursor, connect_timeout=18000)
-        with central_db:
-            with central_db.cursor() as central_cursor:
-                if fetch_all_albums:
-                    central_cursor.execute(query % id_albums_subquery)
-                    log(central_cursor.mogrify(query % id_albums_subquery))
-                    query_results.extend(central_cursor.fetchall())
-                elif id_albums:
-                    chunks = [id_albums[i:i + mariadb_params_limit] for i in
-                              range(0, len(id_albums), mariadb_params_limit)]
-                    for chunk in chunks:
-                        placeholders = ','.join(['%s'] * len(chunk))
-                        central_cursor.execute(query % placeholders, chunk)
-                        log(central_cursor.mogrify(query % placeholders, chunk))
-                        query_results.extend(central_cursor.fetchall())
+        if fetch_all_albums:
+            query_results = db_scan.execute_from_db_gateway(db_params, '/kodi-clients/albums-paths', 'POST')
+        elif id_albums:
+            payload = {'ids': id_albums}
+            query_results = db_scan.execute_from_db_gateway(db_params, '/kodi-clients/albums-paths', 'POST', payload)
     else:
         music_db = sqlite3.connect(music_db_path)
         music_db.row_factory = sqlite3.Row
@@ -339,7 +301,7 @@ def get_album_path_by_id(id_albums, use_central, db_params, music_db_name, fetch
     return album_path_by_id
 
 
-def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params, sources, central_paths):
+def get_albums_to_sync(dt_last_scanned_local, db_params, sources, central_paths):
     query = '''
             SELECT dateAdded,
                    idAlbum,
@@ -350,25 +312,14 @@ def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params, sources,
     from_date_str_local = datetime.strptime(dt_last_scanned_local, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
     to_date = datetime.now() + timedelta(days=1)
     to_date_str = to_date.strftime('%Y-%m-%d')
-    central_results = []
+    query_params = {'last_scan': dt_last_scanned_local}
+    central_results = db_scan.execute_from_db_gateway(db_params, '/kodi-clients/albums-diff-sync', 'GET', query_params=query_params)
     local_results = []
     albums_to_sync = []
-    host = db_params.get('host')
-    username = db_params.get('user')
-    password = db_params.get('pass')
-    central_db = pymysql.connect(host=host, user=username, password=password, database=music_db_name, port=3306,
-                                 cursorclass=pymysql.cursors.DictCursor, connect_timeout=18000)
-    with central_db:
-        with central_db.cursor() as central_cursor:
-            central_cursor.execute(query, (from_date_str_local, to_date_str))
-            log(central_cursor.mogrify(query, (from_date_str_local, to_date_str)))
-            central_results.extend(central_cursor.fetchall())
-
     central_dt_added_by_mbid = {}
     if central_results:
         album_ids = [result.get('idAlbum') for result in central_results]
-        paths_by_id_album = get_album_path_by_id(album_ids, True, db_params, music_db_name, False,
-                                                 sources, central_paths)
+        paths_by_id_album = get_album_path_by_id(album_ids, True, db_params, False, sources, central_paths)
         central_dt_added_by_mbid = {
             result.get('strMusicBrainzAlbumID'): {'paths': paths_by_id_album.get(result.get('idAlbum')),
                                                   'dateAdded': result.get('dateAdded')} for result in central_results
@@ -387,8 +338,7 @@ def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params, sources,
     local_dt_added_by_mbid = {}
     if local_results:
         album_ids = [result['idAlbum'] for result in local_results]
-        paths_by_id_album = get_album_path_by_id(album_ids, False, db_params, music_db_name, False,
-                                                 sources, central_paths)
+        paths_by_id_album = get_album_path_by_id(album_ids, False, db_params, False, sources, central_paths)
         local_dt_added_by_mbid = {
             result['strMusicBrainzAlbumID']: {'paths': paths_by_id_album.get(result['idAlbum']),
                                               'dateAdded': result['dateAdded']} for result in local_results
@@ -404,7 +354,7 @@ def get_albums_to_sync(dt_last_scanned_local, music_db_name, db_params, sources,
     return albums_to_sync
 
 
-def sync_paths_to_scan(db_params, music_db_name):
+def sync_paths_to_scan(db_params):
     local_props = get_properties(False, db_params)
     local_last_scanned = local_props.get('librarylastupdated')
     central_playlists_enabled = db_params.get('centralplaylist')
@@ -412,9 +362,9 @@ def sync_paths_to_scan(db_params, music_db_name):
         playlist_source = f'{db_params.get("sambasource")}/playlists/music/'
         sync_playlists_to_central_path(playlist_source, db_params)
     sources = get_sources(db_params)
-    central_paths = get_central_paths(db_params, music_db_name)
-    albums_to_sync = get_albums_to_sync(local_last_scanned, music_db_name, db_params, sources, central_paths)
-    albums_to_align = get_releases_to_align(db_params, music_db_name, sources, central_paths)
+    central_paths = get_central_paths(db_params)
+    albums_to_sync = get_albums_to_sync(local_last_scanned, db_params, sources, central_paths)
+    albums_to_align = get_releases_to_align(db_params, sources, central_paths)
     paths_to_scan = set()
     paths_to_scan.update(albums_to_sync)
     paths_to_scan.update(albums_to_align)
@@ -462,8 +412,7 @@ def sync_library():
     log(addon_name)
     db_params = db_scan.get_db_params()
     exec_mode = 'scan'
-    music_db_name = db_scan.get_music_db_name()
-    current_scans = sync_paths_to_scan(db_params, music_db_name)
+    current_scans = sync_paths_to_scan(db_params)
     if current_scans and not xbmc.getCondVisibility('Library.IsScanningMusic'):
         query_string = ';'.join([f"path={path}" for path in current_scans if path])
         params = db_scan.encode_string(f'?{query_string};mode={exec_mode}', safe_chars='()!')
