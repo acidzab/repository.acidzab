@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<includes>
+	<include name="ThumbnailViewExtra">
+		<control type="group">
+			<visible>Control.IsVisible(501)</visible>
+			<include>VisibleFadeEffect</include>
+			<control type="panel" id="501">
+				<left>135</left>
+				<top>120</top>
+				<width>1295</width>
+				<height>837</height>
+				<onleft>2</onleft>
+				<onright>20</onright>
+				<onup>501</onup>
+				<ondown>501</ondown>
+				<viewtype label="Miniature Estese">list</viewtype>
+				<pagecontrol>60</pagecontrol>
+				<scrolltime>200</scrolltime>
+				<itemlayout condition="!Container.Content(Movies) + !Container.Content(Seasons) + !Container.Content(TVShows) + !Container.Content(Sets)" height="279" width="324">
+					<control type="image">
+						<left>-9</left>
+						<top>20</top>
+						<width>338</width>
+						<height>220</height>
+						<bordertexture infill="false" border="5">button-nofocus.png</bordertexture>
+						<bordersize>5</bordersize>
+						<texture background="true">$INFO[Listitem.Icon]</texture>
+						<aspectratio>keep</aspectratio>
+						<visible>!Container.Content(Episodes)</visible>
+					</control>
+					<control type="label">
+						<left>12</left>
+						<top>240</top>
+						<width>300</width>
+						<height>38</height>
+						<font>font12</font>
+						<textcolor>grey2</textcolor>
+						<selectedcolor>selected</selectedcolor>
+						<align>center</align>
+						<aligny>center</aligny>
+						<label>$VAR[ShowCustomLabel]</label>
+					</control>
+					<control type="image">
+						<left>255</left>
+						<top>195</top>
+						<width>45</width>
+						<height>45</height>
+						<aspectratio>keep</aspectratio>
+						<texture>$INFO[ListItem.Overlay]</texture>
+					</control>
+				</itemlayout>
+				<focusedlayout condition="!Container.Content(Movies) + !Container.Content(Seasons) + !Container.Content(TVShows) + !Container.Content(Sets)" height="279" width="324">
+					<control type="image">
+						<left>-9</left>
+						<top>20</top>
+						<width>338</width>
+						<height>220</height>
+						<bordertexture infill="false" border="5">folder-focus.png</bordertexture>
+						<bordersize>5</bordersize>
+						<texture background="true">$INFO[Listitem.Icon]</texture>
+						<aspectratio>keep</aspectratio>
+						<visible>!Container.Content(Episodes)</visible>
+					</control>
+					<control type="label">
+						<left>12</left>
+						<top>240</top>
+						<width>300</width>
+						<height>38</height>
+						<font>font12</font>
+						<textcolor>white</textcolor>
+						<selectedcolor>selected</selectedcolor>
+						<align>center</align>
+						<aligny>center</aligny>
+						<label>$VAR[ShowCustomLabel]</label>
+					</control>
+					<control type="image">
+						<left>255</left>
+						<top>195</top>
+						<width>45</width>
+						<height>45</height>
+						<aspectratio>keep</aspectratio>
+						<texture>$INFO[ListItem.Overlay]</texture>
+					</control>
+				</focusedlayout>
+			</control>
+			<control type="scrollbar" id="60">
+				<left>1150</left>
+				<top>120</top>
+				<width>38</width>
+				<height>825</height>
+				<texturesliderbackground border="0,28,0,28">ScrollBarV.png</texturesliderbackground>
+				<texturesliderbar border="0,28,0,28">ScrollBarV_bar.png</texturesliderbar>
+				<texturesliderbarfocus border="0,28,0,28">ScrollBarV_bar_focus.png</texturesliderbarfocus>
+				<textureslidernib>ScrollBarNib.png</textureslidernib>
+				<textureslidernibfocus>ScrollBarNib.png</textureslidernibfocus>
+				<onleft>501</onleft>
+				<onright>2</onright>
+				<showonepage>false</showonepage>
+				<orientation>vertical</orientation>
+				<visible>Control.IsVisible(501)</visible>
+			</control>
+			<control type="group">
+				<depth>DepthContent</depth>
+				<left>1181</left>
+				<top>180</top>
+				<visible>Control.IsVisible(501)</visible>
+				<control type="image">
+					<left>0</left>
+					<top>0</top>
+					<width>660</width>
+					<height>660</height>
+					<aspectratio>keep</aspectratio>
+					<fadetime>IconCrossfadeTime</fadetime>
+					<texture background="true">$INFO[Listitem.Icon]</texture>
+					<bordertexture infill="false" border="8">ThumbShadow.png</bordertexture>
+					<bordersize>18</bordersize>
+				</control>
+			</control>			
+		</control>
+	</include>
+</includes>
