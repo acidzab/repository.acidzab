@@ -189,22 +189,6 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="script.module.zab.pymysql" name="PyMySQL" version="1.2.3" provider-name="Inada Naoki, Yutaka Matsubara">
-    <requires>
-        <import addon="xbmc.python" version="3.1.0" />
-    </requires>
-    <extension point="xbmc.python.module" library="lib" />
-    <extension point="xbmc.addon.metadata">
-        <summary lang="en_GB">Pure Python MySQL Driver</summary>
-        <description lang="en_GB">Pure Python MySQL Driver</description>
-        <license>MIT</license>
-        <platform>all</platform>
-        <website>https://pymysql.readthedocs.io/en/latest/</website>
-        <source>https://github.com/PyMySQL/PyMySQL</source>
-        <assets>
-            <icon>resources/icon.png</icon>
-        </assets>
-    </extension>
 </addon><addon id="script.music.art.preloader" name="Music Library Texture Cache Preloader" version="3.2.8" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.1.0" />
