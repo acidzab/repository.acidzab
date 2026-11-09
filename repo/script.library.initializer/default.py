@@ -35,7 +35,6 @@ def execute_addon_with_builtin(addon_id, params=None):
 
 
 def get_paths_for_init(db_params):
-    results = []
     query = '''
             WITH matched_sources AS (SELECT s.strMultipath
                                      FROM source s
@@ -65,7 +64,7 @@ def get_paths_for_init(db_params):
             ORDER BY priority, strPath'''
     use_webdav = db_params.get('sourcetype') == 'webdav'
     results = db_scan.execute_from_db_gateway(db_params, '/kodi-clients/library-installer-paths', 'GET')
-    central_results = {result.get('strPath') for result in results}
+    central_results = [result.get('strPath') for result in results]
     music_db_path = db_scan.get_music_db_path()
     music_db = sqlite3.connect(music_db_path)
     music_db.row_factory = sqlite3.Row

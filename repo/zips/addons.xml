@@ -83,7 +83,7 @@
             <fanart>fanart.jpg</fanart>
         </assets>
     </extension>
-</addon><addon id="script.alphabetic.library" name="Alphabetic Library" version="1.0.8" provider-name="AcidZab">
+</addon><addon id="script.alphabetic.library" name="Alphabetic Library" version="1.0.9" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.1.0" />
     </requires>
@@ -156,7 +156,7 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="script.library.initzializer" name="Library Installer" version="1.2.1" provider-name="AcidZab">
+</addon><addon id="script.library.initzializer" name="Library Installer" version="1.2.2" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.1.0" />
         <import addon="script.module.zab.commons" version="1.0.5" />
