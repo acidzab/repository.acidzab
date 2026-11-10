@@ -448,7 +448,7 @@
 		<description lang="zh_CN">Confluence 集合了许多流行皮肤的创意，力求把这些优点融合到一个皮肤中，使得首次[CR]使用 Kodi 的用户能更容易上手。</description>
 		<description lang="zh_TW">Confluence 是從 Kodi 9.11 開始預設的面板。它結合了許多受歡迎面板的概念，且試圖包含並整合它們的優點，使第一次使用 Kodi 的使用者可以簡單地上手。</description>
 	</extension>
-</addon><addon id="skin.estuary.zabarchives" version="4.1.0" name="Estuary Zab Archives Edition" provider-name="phil65, Ichabod Fletchman">
+</addon><addon id="skin.estuary.zabarchives" version="4.1.1" name="Estuary Zab Archives Edition" provider-name="phil65, Ichabod Fletchman">
 	<requires>
 		<import addon="xbmc.gui" version="5.18.0" />
 	</requires>
