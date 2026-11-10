@@ -139,7 +139,7 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="script.label.preloader" name="Label Preloader" version="3.3.0" provider-name="AcidZab">
+</addon><addon id="script.label.preloader" name="Label Preloader" version="3.3.1" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.1.0" />
         <import addon="script.module.zab.commons" version="1.0.5" />

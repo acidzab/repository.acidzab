@@ -6,5 +6,6 @@ name = "pypi"
 [packages]
 kodistubs = "*"
 requests = "*"
+unidecode = "*"
 
 [dev-packages]

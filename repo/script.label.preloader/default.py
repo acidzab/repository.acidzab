@@ -350,8 +350,7 @@ def get_labels():
             ]
         }
     }
-    response = xbmc.executeJSONRPC(json.dumps(json_payload))
-    json_response = json.loads(response)
+    json_response = db_scan.execute_from_central_kodi_webserver(db_params, json_payload)
     albums_label = []
     albums = json_response.get('result').get('albums')
     for album in albums:
