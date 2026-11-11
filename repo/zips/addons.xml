@@ -283,7 +283,7 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="service.scan.checker" name="Scanner Checker" version="3.4.2" provider-name="AcidZab">
+</addon><addon id="service.scan.checker" name="Scanner Checker" version="3.4.3" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.1.0" />
         <import addon="script.module.zab.commons" version="1.0.5" />
