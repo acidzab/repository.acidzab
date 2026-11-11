@@ -15,6 +15,7 @@ headers = {
 db_params = db_scan.get_db_params()
 scan_server_url = f"{db_params.get('scanserver')}/scans/status"
 sse_auth = auth.HTTPBasicAuth(db_params.get('scanuser'), db_params.get('scanpass'))
+max_retries = 5
 
 
 def log(msg):
@@ -35,13 +36,14 @@ def open_sse_channel():
 
 
 def retry_sse_channel(sse_channel):
-    log("Riconnessione con lo scan poller")
     close_sse_channel(sse_channel)
-    time.sleep(5)
-    try:
-        sse_channel = open_sse_channel()
-    except Exception as e:
-        log(f'Errore durante la riconnessione {e}')
+    for n in range(max_retries):
+        log(f"Riconnessione con lo scan poller, tentativo {n} di {max_retries}")
+        time.sleep(5)
+        try:
+            sse_channel = open_sse_channel()
+        except Exception as e:
+            log(f'Errore durante la riconnessione {e}')
     return sse_channel
 
 
