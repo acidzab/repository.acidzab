@@ -312,7 +312,7 @@ def get_albums_to_sync(dt_last_scanned_local, db_params, sources, central_paths)
     from_date_str_local = datetime.strptime(dt_last_scanned_local, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
     to_date = datetime.now() + timedelta(days=1)
     to_date_str = to_date.strftime('%Y-%m-%d')
-    query_params = {'last_scan': dt_last_scanned_local}
+    query_params = {'last_scan': from_date_str_local}
     central_results = db_scan.execute_from_db_gateway(db_params, '/kodi-clients/albums-diff-sync', 'GET', query_params=query_params)
     local_results = []
     albums_to_sync = []

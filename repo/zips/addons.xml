@@ -206,7 +206,7 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="script.scanner.trigger" name="Scanner Trigger" version="1.6.0" provider-name="AcidZab">
+</addon><addon id="script.scanner.trigger" name="Scanner Trigger" version="1.6.1" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.1.0" />
         <import addon="script.module.zab.commons" version="1.0.5" />
@@ -265,7 +265,7 @@
             <icon>icon.png</icon>
         </assets>
     </extension>
-</addon><addon id="service.autoexec.library.sync" name="Library Sync" version="1.1.0" provider-name="AcidZab">
+</addon><addon id="service.autoexec.library.sync" name="Library Sync" version="1.1.1" provider-name="AcidZab">
     <requires>
         <import addon="xbmc.python" version="3.1.0" />
         <import addon="script.module.zab.commons" version="1.0.5" />
