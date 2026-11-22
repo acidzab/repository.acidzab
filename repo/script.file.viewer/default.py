@@ -53,15 +53,16 @@ def get_sources():
 def get_id_albums(paths):
     chunks = [paths[i:i + sqlite_params_limit] for i in range(0, len(paths), sqlite_params_limit)]
     results = []
-    for chunk in chunks:
-        placeholders = ' OR '.join(['vsong.strPath LIKE ?||\'%\''] * len(chunk))
-        query = '''
-                SELECT DISTINCT vsong.idAlbum
-                FROM songview vsong
-                WHERE %s
-                ''' % placeholders
-        results = db_scan.connect_and_execute_to_local_db(db_scan.music_db, query, chunk)
-    album_ids = [idAlbum for (idAlbum,) in results]
+    with db_scan.open_local_db(db_scan.music_db) as sqlite_db:
+        for chunk in chunks:
+            placeholders = ' OR '.join(['vsong.strPath LIKE ?||\'%\''] * len(chunk))
+            query = '''
+                    SELECT DISTINCT vsong.idAlbum
+                    FROM songview vsong
+                    WHERE %s
+                    ''' % placeholders
+            results.extend(db_scan.execute_on_db(sqlite_db, query, chunk))
+    album_ids = list(dict.fromkeys(idAlbum for (idAlbum,) in results))
     return album_ids
 
 
@@ -73,9 +74,10 @@ def get_view_paths(paths, exec_mode):
         results.extend(db_scan.connect_and_execute_to_local_db(db_scan.view_modes_db, query % full_fetch_sub_query))
     else:
         chunks = [paths[i:i + sqlite_params_limit] for i in range(0, len(paths), sqlite_params_limit)]
-        for chunk in chunks:
-            placeholders = ','.join(['?'] * len(chunk))
-            results.extend(db_scan.connect_and_execute_to_local_db(db_scan.view_modes_db, query % placeholders, chunk))
+        with db_scan.open_local_db(db_scan.view_modes_db) as sqlite_db:
+            for chunk in chunks:
+                placeholders = ','.join(['?'] * len(chunk))
+                results.extend(db_scan.execute_on_db(sqlite_db, query % placeholders, chunk))
     return {path for (path,) in results}
 
 
@@ -103,24 +105,25 @@ def get_scanned_albums_paths(id_albums, exec_mode):
         results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query % id_album_subquery))
     elif id_albums:
         chunks = [id_albums[i:i + sqlite_params_limit] for i in range(0, len(id_albums), sqlite_params_limit)]
-        for chunk in chunks:
-            placeholders = ','.join(['?'] * len(chunk))
-            results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query % placeholders, chunk))
+        with db_scan.open_local_db(db_scan.music_db) as sqlite_db:
+            for chunk in chunks:
+                placeholders = ','.join(['?'] * len(chunk))
+                results.extend(db_scan.execute_on_db(sqlite_db, query % placeholders, chunk))
     album_paths = [strPath for (strPath,) in results if strPath is not None]
     return album_paths
 
 
-def add_new_view_record(directory, view_mode, sort_method, exsisting_paths, skin_dir):
+def add_new_view_record(sqlite_db, directory, view_mode, sort_method, exsisting_paths, skin_dir):
     directory_to_add = directory not in exsisting_paths
     if directory_to_add:
         # inserisco il record sul db delle view mode
         insert_query = "INSERT INTO view (window, path, viewMode, sortMethod, sortOrder, sortAttributes, skin) VALUES (?,?,?,?,?,?,?)"
         insert_values = (10502, directory, view_mode, sort_method, 1, 0, skin_dir,)
-        db_scan.connect_and_execute_to_local_db(db_scan.view_modes_db, insert_query, insert_values)
+        db_scan.execute_on_db(sqlite_db, insert_query, insert_values)
 
 
-def force_confluence_wall_view_for_files(directory, exsisting_paths):
-    add_new_view_record(directory, 66036, 1, exsisting_paths, confluence_skin_dir)
+def force_confluence_wall_view_for_files(sqlite_db, directory, exsisting_paths):
+    add_new_view_record(sqlite_db, directory, 66036, 1, exsisting_paths, confluence_skin_dir)
 
 
 def get_textures_path_by_url():
@@ -185,10 +188,11 @@ def convert_to_thumb_view(paths_to_convert, use_webdav, id_albums, exec_mode, so
         progress.create(addon_name, message='Imposto la vista di default per i file')
         try:
             exsisting_paths = get_view_paths(paths_to_convert, exec_mode)
-            for (step, directory) in enumerate(paths_to_convert, 1):
-                force_confluence_wall_view_for_files(directory, exsisting_paths)
-                percentuale = (step / total_dirs_to_process) * 100
-                progress.update(message=directory, percent=int(percentuale))
+            with db_scan.open_local_db(db_scan.view_modes_db) as sqlite_db:
+                for (step, directory) in enumerate(paths_to_convert, 1):
+                    force_confluence_wall_view_for_files(sqlite_db, directory, exsisting_paths)
+                    percentuale = (step / total_dirs_to_process) * 100
+                    progress.update(message=directory, percent=int(percentuale))
         finally:
             progress.close()
         progress.create(addon_name, message='Precarico le miniature sui file')
@@ -235,16 +239,17 @@ def get_thumbs_to_cache(id_albums, exec_mode,
                        '''
     results = []
     info_album_results = []
-    if exec_mode == 'init':
-        id_albums_subquery = 'SELECT idAlbum FROM album'
-        results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query % id_albums_subquery))
-        info_album_results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, info_album_query % id_albums_subquery))
-    elif id_albums:
-        chunks = [id_albums[i:i + 999] for i in range(0, len(id_albums), 999)]
-        for chunk in chunks:
-            placeholders = ','.join(['?'] * len(chunk))
-            results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query % placeholders, chunk))
-            info_album_results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, info_album_query % placeholders, chunk))
+    with db_scan.open_local_db(db_scan.music_db) as sqlite_db:
+        if exec_mode == 'init':
+            id_albums_subquery = 'SELECT idAlbum FROM album'
+            results.extend(db_scan.execute_on_db(sqlite_db, query % id_albums_subquery))
+            info_album_results.extend(db_scan.execute_on_db(sqlite_db, info_album_query % id_albums_subquery))
+        elif id_albums:
+            chunks = [id_albums[i:i + 999] for i in range(0, len(id_albums), 999)]
+            for chunk in chunks:
+                placeholders = ','.join(['?'] * len(chunk))
+                results.extend(db_scan.execute_on_db(sqlite_db, query % placeholders, chunk))
+                info_album_results.extend(db_scan.execute_on_db(sqlite_db, info_album_query % placeholders, chunk))
     if results:
         arts_by_id_album = {}
         for (idAlbum, artType, url) in results:
@@ -329,9 +334,10 @@ def get_album_paths_by_id(id_albums, fetch_all_albums):
         query_results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query % id_albums_subquery))
     elif id_albums:
         chunks = [id_albums[i:i + 999] for i in range(0, len(id_albums), 999)]
-        for chunk in chunks:
-            placeholders = ','.join(['?'] * len(chunk))
-            query_results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query % placeholders, chunk))
+        with db_scan.open_local_db(db_scan.music_db) as sqlite_db:
+            for chunk in chunks:
+                placeholders = ','.join(['?'] * len(chunk))
+                query_results.extend(db_scan.execute_on_db(sqlite_db, query % placeholders, chunk))
     paths_by_album = {}
     if query_results:
         for result in query_results:
@@ -391,11 +397,12 @@ def convert_playlists_to_info_media_view():
     exsisting_playlists = get_view_paths(playlists_paths, 'scan')
     progress.create(addon_name, message='Imposto la vista di default per le playlist')
     try:
-        for (step, playlist) in enumerate(playlists, 1):
-            playlist_path = f'special://profile/playlists/music/{playlist}/'
-            add_new_view_record(playlist_path, 66042, 22, exsisting_playlists, confluence_skin_dir)
-            percentuale = (step / len(playlists)) * 100
-            progress.update(message=playlist, percent=int(percentuale))
+        with db_scan.open_local_db(db_scan.view_modes_db) as sqlite_db:
+            for (step, playlist) in enumerate(playlists, 1):
+                playlist_path = f'special://profile/playlists/music/{playlist}/'
+                add_new_view_record(sqlite_db, playlist_path, 66042, 22, exsisting_playlists, confluence_skin_dir)
+                percentuale = (step / len(playlists)) * 100
+                progress.update(message=playlist, percent=int(percentuale))
     finally:
         progress.close()
 

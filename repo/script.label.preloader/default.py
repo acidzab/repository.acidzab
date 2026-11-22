@@ -126,9 +126,10 @@ def get_labels_to_process(id_albums):
     full_fetch_subquery = 'SELECT idAlbum FROM album'
     if id_albums:
         chunks = [id_albums[i:i + sqlite_params_limit] for i in range(0, len(id_albums), sqlite_params_limit)]
-        for chunk in chunks:
-            placeholders = ','.join(['?'] * len(chunk))
-            results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query % placeholders, chunk))
+        with db_scan.open_local_db(db_scan.music_db) as sqlite_db:
+            for chunk in chunks:
+                placeholders = ','.join(['?'] * len(chunk))
+                results.extend(db_scan.execute_on_db(sqlite_db, query % placeholders, chunk))
     else:
         results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query % full_fetch_subquery))
     return [result['strLabel'] for result in results] if results else list()
@@ -509,14 +510,14 @@ def update_labels(central_labels_dir, albums_to_check, labels_to_check, use_webd
 
 
 def force_confluence_wall_view(path):
-    query_check = "SELECT * FROM VIEW vista WHERE vista.path = {}"
-    query_check = query_check.format(f'\'{path}\'')
-    check_res = db_scan.connect_and_execute_to_local_db(db_scan.view_modes_db, query_check)
-    if not check_res:
-        # inserisco il record sul db delle view mode
-        insert_query = "INSERT INTO view (window, path, viewMode, sortMethod, sortOrder, sortAttributes, skin) VALUES (?,?,?,?,?,?,?)"
-        insert_values = (10502, path, 66036, 1, 1, 0, 'skin.confluence.zabarchives',)
-        db_scan.connect_and_execute_to_local_db(db_scan.view_modes_db, insert_query, insert_values)
+    query_check = "SELECT * FROM VIEW vista WHERE vista.path = ?"
+    with db_scan.open_local_db(db_scan.view_modes_db) as sqlite_db:
+        check_res = db_scan.execute_on_db(sqlite_db, query_check, (path,))
+        if not check_res:
+            # inserisco il record sul db delle view mode
+            insert_query = "INSERT INTO view (window, path, viewMode, sortMethod, sortOrder, sortAttributes, skin) VALUES (?,?,?,?,?,?,?)"
+            insert_values = (10502, path, 66036, 1, 1, 0, 'skin.confluence.zabarchives',)
+            db_scan.execute_on_db(sqlite_db, insert_query, insert_values)
 
 
 def init_node(folder_to_init, default_icon, main_node_label, order):

@@ -418,13 +418,14 @@ def get_artworks_by_key(id_albums, media_type, db_params, call_central):
                     art_info[art_result.get('type')] = art_result.get('url')
                 artworks_by_key[key] = art_info
     else:
-        if id_albums:
-            chunks = [id_albums[i:i + 999] for i in range(0, len(id_albums), 999)]
-            for chunk in chunks:
-                placeholders = ','.join(['?'] * len(chunk))
-                art_results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query % placeholders, chunk))
-        else:
-            art_results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query))
+        with db_scan.open_local_db(db_scan.music_db) as sqlite_db:
+            if id_albums:
+                chunks = [id_albums[i:i + 999] for i in range(0, len(id_albums), 999)]
+                for chunk in chunks:
+                    placeholders = ','.join(['?'] * len(chunk))
+                    art_results.extend(db_scan.execute_on_db(sqlite_db, query % placeholders, chunk))
+            else:
+                art_results.extend(db_scan.execute_on_db(sqlite_db, query))
         if art_results:
             for art_result in art_results:
                 key = (art_result['idAlbum'], art_result['strMusicBrainzAlbumID']) if media_type == 'album' else (
@@ -571,15 +572,16 @@ def get_artists_data(id_artists_set, db_params, call_central):
                 if artist_info not in artists_data:
                     artists_data.append(artist_info)
     else:
-        if id_artists:
-            chunks = [id_artists[i:i + 999] for i in range(0, len(id_artists), 999)]
-            for chunk in chunks:
-                placeholders = ','.join(['?'] * len(chunk))
-                artist_results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, artist_query % placeholders, chunk))
-                artist_discography_results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, artist_discography_query % placeholders, chunk))
-        else:
-            artist_results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, artist_query))
-            artist_discography_results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, artist_discography_query))
+        with db_scan.open_local_db(db_scan.music_db) as sqlite_db:
+            if id_artists:
+                chunks = [id_artists[i:i + 999] for i in range(0, len(id_artists), 999)]
+                for chunk in chunks:
+                    placeholders = ','.join(['?'] * len(chunk))
+                    artist_results.extend(db_scan.execute_on_db(sqlite_db, artist_query % placeholders, chunk))
+                    artist_discography_results.extend(db_scan.execute_on_db(sqlite_db, artist_discography_query % placeholders, chunk))
+            else:
+                artist_results.extend(db_scan.execute_on_db(sqlite_db, artist_query))
+                artist_discography_results.extend(db_scan.execute_on_db(sqlite_db, artist_discography_query))
         if artist_discography_results:
             for artist_discography_result in artist_discography_results:
                 discography = discography_by_artist.get(artist_discography_result['idArtist'])
@@ -624,26 +626,28 @@ def get_artists_data(id_artists_set, db_params, call_central):
 
 
 def update_arts(arts_to_insert, arts_to_update, arts_to_remove):
-    if arts_to_insert:
-        query = '''INSERT INTO art (media_id, media_type, type, url)
-                   VALUES (?, ?, ?, ?)'''
-        db_scan.connect_and_execute_to_local_db(db_scan.music_db, query, arts_to_insert, True)
-    if arts_to_remove:
-        query = '''
-                DELETE
-                FROM art
-                WHERE media_id = ?
-                  AND media_type = ?
-                  AND type = ?'''
-        db_scan.connect_and_execute_to_local_db(db_scan.music_db, query, arts_to_remove, True)
-    if arts_to_update:
-        query = '''
-                UPDATE art
-                SET url = ?
-                WHERE media_id = ?
-                  AND media_type = ?
-                  AND type = ?'''
-        db_scan.connect_and_execute_to_local_db(db_scan.music_db, query, arts_to_update, True)
+    if arts_to_insert or arts_to_remove or arts_to_update:
+        with db_scan.open_local_db(db_scan.music_db) as sqlite_db:
+            if arts_to_insert:
+                query = '''INSERT INTO art (media_id, media_type, type, url)
+                           VALUES (?, ?, ?, ?)'''
+                db_scan.execute_on_db(sqlite_db, query, arts_to_insert, True)
+            if arts_to_remove:
+                query = '''
+                        DELETE
+                        FROM art
+                        WHERE media_id = ?
+                          AND media_type = ?
+                          AND type = ?'''
+                db_scan.execute_on_db(sqlite_db, query, arts_to_remove, True)
+            if arts_to_update:
+                query = '''
+                        UPDATE art
+                        SET url = ?
+                        WHERE media_id = ?
+                          AND media_type = ?
+                          AND type = ?'''
+                db_scan.execute_on_db(sqlite_db, query, arts_to_update, True)
     set_item_update(arts_to_insert, arts_to_update, arts_to_remove)
 
 
@@ -712,9 +716,11 @@ def update_artist_records(central_artists, local_artists, artists_to_update):
         elif local_artist.get('discography') and not central_artist.get('discography'):
             artists_to_reset.append((local_artist.get('id'),))
     if releases_to_set or artists_to_reset:
-        db_scan.connect_and_execute_to_local_db(db_scan.music_db, discography_delete_query, artists_to_reset, True)
-    if releases_to_set:
-        db_scan.connect_and_execute_to_local_db(db_scan.music_db, discography_insert_query, releases_to_set, True)
+        with db_scan.open_local_db(db_scan.music_db) as sqlite_db:
+            if artists_to_reset:
+                db_scan.execute_on_db(sqlite_db, discography_delete_query, artists_to_reset, True)
+            if releases_to_set:
+                db_scan.execute_on_db(sqlite_db, discography_insert_query, releases_to_set, True)
 
 
 def clean_paths():
@@ -740,16 +746,17 @@ def force_path_rescan(paths_to_scan):
             '''
     query_results = []
     chunks = [paths_to_scan[i:i + 999] for i in range(0, len(paths_to_scan), 999)]
-    for chunk in chunks:
-        placeholders = ','.join(['?'] * len(chunk))
-        query_results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query % placeholders, chunk))
-    ids_to_force = [result['idPath'] for result in query_results]
-    if ids_to_force:
-        paths_to_force = []
-        for id_to_force in ids_to_force:
-            paths_to_force.append((id_to_force,))
-        update_query = 'UPDATE path SET strHash=\'\' WHERE idPath=?'
-        db_scan.connect_and_execute_to_local_db(db_scan.music_db, update_query, paths_to_force, True)
+    with db_scan.open_local_db(db_scan.music_db) as sqlite_db:
+        for chunk in chunks:
+            placeholders = ','.join(['?'] * len(chunk))
+            query_results.extend(db_scan.execute_on_db(sqlite_db, query % placeholders, chunk))
+        ids_to_force = [result['idPath'] for result in query_results]
+        if ids_to_force:
+            paths_to_force = []
+            for id_to_force in ids_to_force:
+                paths_to_force.append((id_to_force,))
+            update_query = 'UPDATE path SET strHash=\'\' WHERE idPath=?'
+            db_scan.execute_on_db(sqlite_db, update_query, paths_to_force, True)
 
 
 def align_media_to_central_db(paths, local_paths, exec_mode, db_params):
@@ -960,14 +967,15 @@ def set_item_update(arts_to_insert, arts_to_update, arts_to_remove):
             media_ids_by_media_type[media_type] = media_ids
 
     if media_ids_by_media_type:
-        for media_type in media_ids_by_media_type.keys():
-            media_ids = media_ids_by_media_type.get(media_type)
-            if media_type == 'artist':
-                db_scan.connect_and_execute_to_local_db(db_scan.music_db, artist_update, media_ids, True)
-            elif media_type == 'album':
-                db_scan.connect_and_execute_to_local_db(db_scan.music_db, album_update, media_ids, True)
-            elif media_type == 'song':
-                db_scan.connect_and_execute_to_local_db(db_scan.music_db, song_update, media_ids, True)
+        with db_scan.open_local_db(db_scan.music_db) as sqlite_db:
+            for media_type in media_ids_by_media_type.keys():
+                media_ids = media_ids_by_media_type.get(media_type)
+                if media_type == 'artist':
+                    db_scan.execute_on_db(sqlite_db, artist_update, media_ids, True)
+                elif media_type == 'album':
+                    db_scan.execute_on_db(sqlite_db, album_update, media_ids, True)
+                elif media_type == 'song':
+                    db_scan.execute_on_db(sqlite_db, song_update, media_ids, True)
 
 
 def process_media_art_with_batching(db_params, central_album_arts, local_album_arts,

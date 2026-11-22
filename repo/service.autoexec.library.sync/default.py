@@ -253,9 +253,10 @@ def get_album_path_by_id(id_albums, use_central, db_params,fetch_all_albums, sou
             query_results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query % id_albums_subquery))
         elif id_albums:
             chunks = [id_albums[i:i + sqlite_params_limit] for i in range(0, len(id_albums), sqlite_params_limit)]
-            for chunk in chunks:
-                placeholders = ','.join(['?'] * len(chunk))
-                query_results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query % placeholders, chunk))
+            with db_scan.open_local_db(db_scan.music_db) as sqlite_db:
+                for chunk in chunks:
+                    placeholders = ','.join(['?'] * len(chunk))
+                    query_results.extend(db_scan.execute_on_db(sqlite_db, query % placeholders, chunk))
     album_path_by_id = {}
     if query_results:
         paths_by_album = {}
@@ -362,9 +363,10 @@ def get_paths_to_clean_on_update(paths, db_params, central_paths):
     local_results = []
     paths_to_check = [db_scan.convert_from_smb_to_davs(path) if use_webdav else path for path in paths]
     chunks = [paths_to_check[i:i + sqlite_params_limit] for i in range(0, len(paths_to_check), sqlite_params_limit)]
-    for chunk in chunks:
-        placeholders = ' OR '.join(['path.strPath LIKE ?||\'%\''] * len(chunk))
-        local_results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query % placeholders, chunk))
+    with db_scan.open_local_db(db_scan.music_db) as sqlite_db:
+        for chunk in chunks:
+            placeholders = ' OR '.join(['path.strPath LIKE ?||\'%\''] * len(chunk))
+            local_results.extend(db_scan.execute_on_db(sqlite_db, query % placeholders, chunk))
     local_paths = {db_scan.convert_from_davs_to_smb(result['strPath']) if use_webdav else result['strPath'] for result
                    in local_results}
     paths_to_clean = local_paths - central_paths

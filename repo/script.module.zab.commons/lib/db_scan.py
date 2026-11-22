@@ -2,6 +2,7 @@ import json
 import re
 import sqlite3
 import sys
+from contextlib import contextmanager
 from urllib.parse import unquote, quote, parse_qs
 
 import requests
@@ -171,41 +172,51 @@ def get_db_path(db_name):
     return xbmcvfs.translatePath(db_path)
 
 
-def connect_and_execute_to_local_db(db_type, query, params=None, execute_many=False):
+@contextmanager
+def open_local_db(db_type):
+    # connessione unica per un blocco di lavoro: commit all'uscita, rollback in caso di eccezione, chiusura sempre
     pragma_synchronous = 'PRAGMA synchronous=NORMAL;'
     db_path = get_db_path(db_type)
     sqlite_db = sqlite3.connect(db_path)
     sqlite_db.row_factory = sqlite3.Row
     sqlite_db.set_trace_callback(log)
+    try:
+        sqlite_db.execute(pragma_synchronous)
+        yield sqlite_db
+        sqlite_db.commit()
+    except Exception:
+        sqlite_db.rollback()
+        raise
+    finally:
+        sqlite_db.close()
+
+
+def execute_on_db(sqlite_db, query, params=None, execute_many=False):
     sqlite_db_cursor = sqlite_db.cursor()
-    sqlite_db_cursor.execute(pragma_synchronous)
-    if params:
-        if execute_many:
-            sqlite_db_cursor.executemany(query, params)
+    try:
+        if params:
+            if execute_many:
+                sqlite_db_cursor.executemany(query, params)
+            else:
+                sqlite_db_cursor.execute(query, params)
         else:
-            sqlite_db_cursor.execute(query, params)
-    else:
-        sqlite_db_cursor.execute(query)
-    sqlite_db.commit()
-    results = sqlite_db_cursor.fetchall()
-    sqlite_db_cursor.close()
-    sqlite_db.close()
-    return results
+            sqlite_db_cursor.execute(query)
+        return sqlite_db_cursor.fetchall()
+    finally:
+        sqlite_db_cursor.close()
+
+
+def connect_and_execute_to_local_db(db_type, query, params=None, execute_many=False):
+    with open_local_db(db_type) as sqlite_db:
+        return execute_on_db(sqlite_db, query, params, execute_many)
 
 
 def configure_local_dbs():
     kodi_dbs = get_latest_kodi_dbs()
     pragma_wal_query = 'PRAGMA journal_mode=WAL;'
     for db_type in kodi_dbs:
-        db_path = get_db_path(db_type)
-        sqlite_db = sqlite3.connect(db_path)
-        sqlite_db.row_factory = sqlite3.Row
-        sqlite_db.set_trace_callback(log)
-        sqlite_db_cursor = sqlite_db.cursor()
-        sqlite_db_cursor.execute(pragma_wal_query)
-        sqlite_db.commit()
-        sqlite_db_cursor.close()
-        sqlite_db.close()
+        with open_local_db(db_type) as sqlite_db:
+            sqlite_db.execute(pragma_wal_query)
 
 
 # una bella compattata al db non guasta dopo tutto questo smarmellaio
