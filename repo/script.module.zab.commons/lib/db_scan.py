@@ -179,10 +179,13 @@ def connect_and_execute_to_local_db(db_type, query, params=None, execute_many=Fa
     sqlite_db.set_trace_callback(log)
     sqlite_db_cursor = sqlite_db.cursor()
     sqlite_db_cursor.execute(pragma_synchronous)
-    if execute_many:
-        sqlite_db_cursor.executemany(query, params)
+    if params:
+        if execute_many:
+            sqlite_db_cursor.executemany(query, params)
+        else:
+            sqlite_db_cursor.execute(query, params)
     else:
-        sqlite_db_cursor.execute(query, params)
+        sqlite_db_cursor.execute(query)
     sqlite_db.commit()
     results = sqlite_db_cursor.fetchall()
     sqlite_db_cursor.close()
