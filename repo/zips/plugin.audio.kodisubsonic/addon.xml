@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="plugin.audio.kodisubsonic" name="OpenSubsonic Playlists" version="1.0.5" provider-name="AcidZab">
+    <requires>
+        <import addon="xbmc.python" version="3.1.0"/>
+    </requires>
+    <extension point="xbmc.python.pluginsource" library="default.py">
+        <provides>audio</provides>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary lang="it_IT">Gestione delle playlist per Kodi OpenSubsonic Gateway</summary>
+        <description lang="it_IT">Crea, modifica ed elimina le playlist musicali per conto del gateway OpenSubsonic. Non è consultabile da interfaccia.</description>
+        <platform>all</platform>
+        <assets>
+            <icon>icon.png</icon>
+        </assets>
+    </extension>
+</addon>
