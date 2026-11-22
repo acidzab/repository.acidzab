@@ -526,8 +526,10 @@ def get_artists_data(id_artists_set, db_params, call_central):
     if call_central:
         if id_artists:
             payload = {'ids': id_artists}
-            artist_results = db_scan.execute_from_db_gateway(db_params, '/kodi-clients/artists-info', 'POST', payload=payload)
-            artist_discography_results = db_scan.execute_from_db_gateway(db_params, '/kodi-clients/artists-discography', 'POST', payload=payload)
+            splitted_requests = db_scan.split_json(payload)
+            for splitted_request in splitted_requests:
+                artist_results.extend(db_scan.execute_from_db_gateway(db_params, '/kodi-clients/artists-info', 'POST', payload=splitted_request))
+                artist_discography_results.extend(db_scan.execute_from_db_gateway(db_params, '/kodi-clients/artists-discography', 'POST', payload=splitted_request))
         else:
             artist_results = db_scan.execute_from_db_gateway(db_params, '/kodi-clients/artists-info', 'POST')
             artist_discography_results = db_scan.execute_from_db_gateway(db_params, '/kodi-clients/artists-discography', 'POST')
