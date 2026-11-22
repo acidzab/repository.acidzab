@@ -1,5 +1,3 @@
-import sqlite3
-
 import db_scan
 import xbmc
 import xbmcaddon
@@ -65,15 +63,7 @@ def get_paths_for_init(db_params):
     use_webdav = db_params.get('sourcetype') == 'webdav'
     results = db_scan.execute_from_db_gateway(db_params, '/kodi-clients/library-installer-paths', 'GET')
     central_results = [result.get('strPath') for result in results]
-    music_db_path = db_scan.get_music_db_path()
-    music_db = sqlite3.connect(music_db_path)
-    music_db.row_factory = sqlite3.Row
-    music_db.set_trace_callback(log)
-    music_db_cursor = music_db.cursor()
-    music_db_cursor.execute(query)
-    local_results = music_db_cursor.fetchall()
-    music_db_cursor.close()
-    music_db.close()
+    local_results = db_scan.connect_and_execute_to_local_db(db_scan.music_db, query)
     local_results = {result['strPath'] for result in local_results}
     paths_to_scan = []
     for path in central_results:
@@ -86,6 +76,8 @@ def get_paths_for_init(db_params):
 def init_library():
     addon_name = xbmcaddon.Addon().getAddonInfo('name')
     log(addon_name)
+    # operazione da fare una tantum pre installazione (impostazione della journal mode di sqlite a WAL)
+    db_scan.configure_local_dbs()
     db_params = db_scan.get_db_params()
     paths_to_scan = get_paths_for_init(db_params)
     if paths_to_scan:

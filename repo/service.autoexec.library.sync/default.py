@@ -1,13 +1,13 @@
 import json
 import os.path
-import sqlite3
 from datetime import datetime, timedelta
 
-import db_scan
 import xbmc
 import xbmcaddon
 import xbmcgui
 import xbmcvfs
+
+import db_scan
 
 addon_name = xbmcaddon.Addon().getAddonInfo('name')
 sqlite_params_limit = 999
@@ -80,22 +80,13 @@ def get_central_paths(db_params):
 
 
 def get_album_infos(use_central, db_params, sources, central_paths):
-    music_db_path = db_scan.get_music_db_path()
     album_infos = []
     query = '''SELECT idAlbum, strMusicBrainzAlbumID
                FROM album'''
-    query_results = []
     if use_central:
         query_results = db_scan.execute_from_db_gateway(db_params, '/kodi-clients/albums-info', 'GET')
     else:
-        music_db = sqlite3.connect(music_db_path)
-        music_db.row_factory = sqlite3.Row
-        music_db.set_trace_callback(log)
-        music_db_cursor = music_db.cursor()
-        music_db_cursor.execute(query)
-        query_results.extend(music_db_cursor.fetchall())
-        music_db_cursor.close()
-        music_db.close()
+        query_results = db_scan.connect_and_execute_to_local_db(db_scan.music_db, query)
     if query_results:
         paths_by_id_album = get_album_path_by_id(list(), use_central, db_params, True, sources, central_paths)
         for result in query_results:
@@ -238,7 +229,6 @@ def get_album_common_path(song_paths, sources):
 
 def get_album_path_by_id(id_albums, use_central, db_params,fetch_all_albums, sources, central_paths):
     use_webdav = db_params.get('sourcetype') == 'webdav'
-    music_db_path = db_scan.get_music_db_path()
     query = '''
             SELECT DISTINCT song.idAlbum,
                             strPath,
@@ -259,21 +249,13 @@ def get_album_path_by_id(id_albums, use_central, db_params,fetch_all_albums, sou
             payload = {'ids': id_albums}
             query_results = db_scan.execute_from_db_gateway(db_params, '/kodi-clients/albums-paths', 'POST', payload)
     else:
-        music_db = sqlite3.connect(music_db_path)
-        music_db.row_factory = sqlite3.Row
-        music_db.set_trace_callback(log)
-        music_db_cursor = music_db.cursor()
         if fetch_all_albums:
-            music_db_cursor.execute(query % id_albums_subquery)
-            query_results.extend(music_db_cursor.fetchall())
+            query_results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query % id_albums_subquery))
         elif id_albums:
             chunks = [id_albums[i:i + sqlite_params_limit] for i in range(0, len(id_albums), sqlite_params_limit)]
             for chunk in chunks:
                 placeholders = ','.join(['?'] * len(chunk))
-                music_db_cursor.execute(query % placeholders, chunk)
-                query_results.extend(music_db_cursor.fetchall())
-        music_db_cursor.close()
-        music_db.close()
+                query_results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query % placeholders, chunk))
     album_path_by_id = {}
     if query_results:
         paths_by_album = {}
@@ -314,7 +296,6 @@ def get_albums_to_sync(dt_last_scanned_local, db_params, sources, central_paths)
     to_date_str = to_date.strftime('%Y-%m-%d')
     query_params = {'last_scan': from_date_str_local}
     central_results = db_scan.execute_from_db_gateway(db_params, '/kodi-clients/albums-diff-sync', 'GET', query_params=query_params)
-    local_results = []
     albums_to_sync = []
     central_dt_added_by_mbid = {}
     if central_results:
@@ -324,16 +305,8 @@ def get_albums_to_sync(dt_last_scanned_local, db_params, sources, central_paths)
             result.get('strMusicBrainzAlbumID'): {'paths': paths_by_id_album.get(result.get('idAlbum')),
                                                   'dateAdded': result.get('dateAdded')} for result in central_results
         }
-    music_db_path = db_scan.get_music_db_path()
-    music_db = sqlite3.connect(music_db_path)
-    music_db.row_factory = sqlite3.Row
-    music_db.set_trace_callback(log)
-    music_db_cursor = music_db.cursor()
     query = query.replace('%s', '?')
-    music_db_cursor.execute(query, (from_date_str_local, to_date_str))
-    local_results.extend(music_db_cursor.fetchall())
-    music_db_cursor.close()
-    music_db.close()
+    local_results = db_scan.connect_and_execute_to_local_db(db_scan.music_db, query, (from_date_str_local, to_date_str))
 
     local_dt_added_by_mbid = {}
     if local_results:
@@ -381,7 +354,6 @@ def emit_final_dialog(addon_name):
 
 def get_paths_to_clean_on_update(paths, db_params, central_paths):
     use_webdav = db_params.get('sourcetype') == 'webdav'
-    music_db_path = db_scan.get_music_db_path()
     query = '''
             SELECT path.strPath
             FROM path
@@ -389,17 +361,10 @@ def get_paths_to_clean_on_update(paths, db_params, central_paths):
             '''
     local_results = []
     paths_to_check = [db_scan.convert_from_smb_to_davs(path) if use_webdav else path for path in paths]
-    music_db = sqlite3.connect(music_db_path)
-    music_db.row_factory = sqlite3.Row
-    music_db.set_trace_callback(log)
-    music_db_cursor = music_db.cursor()
     chunks = [paths_to_check[i:i + sqlite_params_limit] for i in range(0, len(paths_to_check), sqlite_params_limit)]
     for chunk in chunks:
         placeholders = ' OR '.join(['path.strPath LIKE ?||\'%\''] * len(chunk))
-        music_db_cursor.execute(query % placeholders, chunk)
-        local_results.extend(music_db_cursor.fetchall())
-    music_db_cursor.close()
-    music_db.close()
+        local_results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query % placeholders, chunk))
     local_paths = {db_scan.convert_from_davs_to_smb(result['strPath']) if use_webdav else result['strPath'] for result
                    in local_results}
     paths_to_clean = local_paths - central_paths

@@ -1,7 +1,6 @@
 import json
 import os
 import re
-import sqlite3
 import string
 import xml.etree.ElementTree as ET
 from urllib.parse import quote, unquote
@@ -123,24 +122,15 @@ def get_labels_dirs(id_albums, labels_to_process):
 
 def get_labels_to_process(id_albums):
     results = []
-    music_db_path = db_scan.get_music_db_path()
-    music_db = sqlite3.connect(music_db_path)
-    music_db.row_factory = sqlite3.Row
-    music_db.set_trace_callback(log)
-    music_db_cursor = music_db.cursor()
     query = 'SELECT DISTINCT strLabel FROM album WHERE idAlbum IN (%s) ORDER BY strLabel'
     full_fetch_subquery = 'SELECT idAlbum FROM album'
     if id_albums:
         chunks = [id_albums[i:i + sqlite_params_limit] for i in range(0, len(id_albums), sqlite_params_limit)]
         for chunk in chunks:
             placeholders = ','.join(['?'] * len(chunk))
-            music_db_cursor.execute(query % placeholders, chunk)
-            results.extend(music_db_cursor.fetchall())
+            results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query % placeholders, chunk))
     else:
-        music_db_cursor.execute(query % full_fetch_subquery)
-        results.extend(music_db_cursor.fetchall())
-    music_db_cursor.close()
-    music_db.close()
+        results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query % full_fetch_subquery))
     return [result['strLabel'] for result in results] if results else list()
 
 
@@ -519,21 +509,14 @@ def update_labels(central_labels_dir, albums_to_check, labels_to_check, use_webd
 
 
 def force_confluence_wall_view(path):
-    view_mode_db_path = db_scan.get_view_modes_db_path()
-    view_mode_db = sqlite3.connect(view_mode_db_path)
-    view_mode_db.set_trace_callback(log)
-    view_mode_db_cursor = view_mode_db.cursor()
     query_check = "SELECT * FROM VIEW vista WHERE vista.path = {}"
     query_check = query_check.format(f'\'{path}\'')
-    check_res = view_mode_db_cursor.execute(query_check).fetchall()
+    check_res = db_scan.connect_and_execute_to_local_db(db_scan.view_modes_db, query_check)
     if not check_res:
         # inserisco il record sul db delle view mode
         insert_query = "INSERT INTO view (window, path, viewMode, sortMethod, sortOrder, sortAttributes, skin) VALUES (?,?,?,?,?,?,?)"
         insert_values = (10502, path, 66036, 1, 1, 0, 'skin.confluence.zabarchives',)
-        view_mode_db_cursor.execute(insert_query, insert_values)
-        view_mode_db.commit()
-    view_mode_db_cursor.close()
-    view_mode_db.close()
+        db_scan.connect_and_execute_to_local_db(db_scan.view_modes_db, insert_query, insert_values)
 
 
 def init_node(folder_to_init, default_icon, main_node_label, order):

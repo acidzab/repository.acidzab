@@ -1,5 +1,6 @@
 import json
 import re
+import sqlite3
 import sys
 from urllib.parse import unquote, quote, parse_qs
 
@@ -9,7 +10,13 @@ import xbmcvfs
 from requests import auth
 
 kodi_local_db_path = xbmcvfs.translatePath('special://userdata/Database/')
-
+view_modes_db = 'viewmodes'
+texture_db = 'textures'
+music_db = 'music'
+addons_db = 'addons'
+video_db = 'videos'
+epg_db = 'epg'
+tv_db = 'tv'
 
 def log(msg):
     xbmc.log(str(msg), xbmc.LOGDEBUG)
@@ -147,13 +154,13 @@ def get_latest_kodi_dbs():
     :return: dict con {Db: Nome db aggiornato}
     """
     results = {}
-    results['addons'] = xbmc.getDatabaseName('addons')
-    results['epg'] = xbmc.getDatabaseName('epg')
-    results['music'] = xbmc.getDatabaseName('music')
-    results['textures'] = xbmc.getDatabaseName('textures')
-    results['tv'] = xbmc.getDatabaseName('tv')
-    results['videos'] = xbmc.getDatabaseName('videos')
-    results['viewmodes'] = xbmc.getDatabaseName('viewmodes')
+    results[addons_db] = xbmc.getDatabaseName(addons_db)
+    results[epg_db] = xbmc.getDatabaseName(epg_db)
+    results[music_db] = xbmc.getDatabaseName(music_db)
+    results[texture_db] = xbmc.getDatabaseName(texture_db)
+    results[tv_db] = xbmc.getDatabaseName(tv_db)
+    results[video_db] = xbmc.getDatabaseName(video_db)
+    results[view_modes_db] = xbmc.getDatabaseName(view_modes_db)
     return results
 
 
@@ -164,25 +171,48 @@ def get_db_path(db_name):
     return xbmcvfs.translatePath(db_path)
 
 
-def get_music_db_path():
-    return get_db_path('music')
+def connect_and_execute_to_local_db(db_type, query, params=None, execute_many=False):
+    pragma_synchronous = 'PRAGMA synchronous=NORMAL;'
+    db_path = get_db_path(db_type)
+    sqlite_db = sqlite3.connect(db_path)
+    sqlite_db.row_factory = sqlite3.Row
+    sqlite_db.set_trace_callback(log)
+    sqlite_db_cursor = sqlite_db.cursor()
+    sqlite_db_cursor.execute(pragma_synchronous)
+    if execute_many:
+        sqlite_db_cursor.executemany(query, params)
+    else:
+        sqlite_db_cursor.execute(query, params)
+    sqlite_db.commit()
+    results = sqlite_db_cursor.fetchall()
+    sqlite_db_cursor.close()
+    sqlite_db.close()
+    return results
 
 
-def get_textures_db_path():
-    return get_db_path('textures')
+def configure_local_dbs():
+    kodi_dbs = get_latest_kodi_dbs()
+    pragma_wal_query = 'PRAGMA journal_mode=WAL;'
+    for db_type in kodi_dbs:
+        db_path = get_db_path(db_type)
+        sqlite_db = sqlite3.connect(db_path)
+        sqlite_db.row_factory = sqlite3.Row
+        sqlite_db.set_trace_callback(log)
+        sqlite_db_cursor = sqlite_db.cursor()
+        sqlite_db_cursor.execute(pragma_wal_query)
+        sqlite_db.commit()
+        sqlite_db_cursor.close()
+        sqlite_db.close()
 
 
-def get_view_modes_db_path():
-    return get_db_path('viewmodes')
-
-
-def get_music_db_name():
-    return get_latest_kodi_dbs().get('music')
-
-
-def get_textures_db_name():
-    return get_latest_kodi_dbs().get('textures')
-
-
-def get_view_modes_db_name():
-    return get_latest_kodi_dbs().get('viewmodes')
+# una bella compattata al db non guasta dopo tutto questo smarmellaio
+def compact_db(db_type):
+    db_path = get_db_path(db_type)
+    db = sqlite3.connect(db_path)
+    db.set_trace_callback(log)
+    db_cursor = db.cursor()
+    query = '''VACUUM'''
+    db_cursor.execute(query)
+    db.commit()
+    db_cursor.close()
+    db.close()

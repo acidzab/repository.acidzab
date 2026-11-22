@@ -1,16 +1,16 @@
 import json
 import os
 import re
-import sqlite3
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import quote, unquote
 
-import db_scan
 import xbmc
 import xbmcaddon
 import xbmcgui
 import xbmcvfs
+
+import db_scan
 
 audio_extensions = ['.mp3', '.wav', '.wma', '.aac', '.flac', '.ogg', '.m4a', '.aiff', '.aif', '.alac', '.amr', '.ape',
                     '.au', '.mpc', '.tta', '.wv', '.opus']
@@ -51,10 +51,6 @@ def get_sources():
 
 
 def get_id_albums(paths):
-    music_db_path = db_scan.get_music_db_path()
-    music_db = sqlite3.connect(music_db_path)
-    music_db.set_trace_callback(log)
-    music_db_cursor = music_db.cursor()
     chunks = [paths[i:i + sqlite_params_limit] for i in range(0, len(paths), sqlite_params_limit)]
     results = []
     for chunk in chunks:
@@ -64,9 +60,7 @@ def get_id_albums(paths):
                 FROM songview vsong
                 WHERE %s
                 ''' % placeholders
-        results = music_db_cursor.execute(query, chunk).fetchall()
-    music_db_cursor.close()
-    music_db.close()
+        results = db_scan.connect_and_execute_to_local_db(db_scan.music_db, query, chunk)
     album_ids = [idAlbum for (idAlbum,) in results]
     return album_ids
 
@@ -75,19 +69,13 @@ def get_view_paths(paths, exec_mode):
     results = []
     query = "SELECT path FROM VIEW vista WHERE vista.path IN (%s)"
     full_fetch_sub_query = 'SELECT path FROM view'
-    view_mode_db_path = db_scan.get_view_modes_db_path()
-    view_mode_db = sqlite3.connect(view_mode_db_path)
-    view_mode_db.set_trace_callback(log)
-    view_mode_db_cursor = view_mode_db.cursor()
     if exec_mode == 'init':
-        results.extend(view_mode_db_cursor.execute(query % full_fetch_sub_query).fetchall())
+        results.extend(db_scan.connect_and_execute_to_local_db(db_scan.view_modes_db, query % full_fetch_sub_query))
     else:
         chunks = [paths[i:i + sqlite_params_limit] for i in range(0, len(paths), sqlite_params_limit)]
         for chunk in chunks:
             placeholders = ','.join(['?'] * len(chunk))
-            results.extend(view_mode_db_cursor.execute(query % placeholders, chunk).fetchall())
-    view_mode_db_cursor.close()
-    view_mode_db.close()
+            results.extend(db_scan.connect_and_execute_to_local_db(db_scan.view_modes_db, query % placeholders, chunk))
     return {path for (path,) in results}
 
 
@@ -110,20 +98,14 @@ def get_scanned_albums_paths(id_albums, exec_mode):
             FROM song
                      JOIN path path ON song.idPath = path.idPath
             WHERE song.idAlbum IN (%s)'''
-    music_db_path = db_scan.get_music_db_path()
-    music_db = sqlite3.connect(music_db_path)
-    music_db.set_trace_callback(log)
-    music_db_cursor = music_db.cursor()
     if exec_mode == 'init':
         id_album_subquery = 'SELECT idAlbum FROM album'
-        results.extend(music_db_cursor.execute(query % id_album_subquery).fetchall())
+        results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query % id_album_subquery))
     elif id_albums:
         chunks = [id_albums[i:i + sqlite_params_limit] for i in range(0, len(id_albums), sqlite_params_limit)]
         for chunk in chunks:
             placeholders = ','.join(['?'] * len(chunk))
-            results.extend(music_db_cursor.execute(query % placeholders, chunk).fetchall())
-    music_db_cursor.close()
-    music_db.close()
+            results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query % placeholders, chunk))
     album_paths = [strPath for (strPath,) in results if strPath is not None]
     return album_paths
 
@@ -131,17 +113,10 @@ def get_scanned_albums_paths(id_albums, exec_mode):
 def add_new_view_record(directory, view_mode, sort_method, exsisting_paths, skin_dir):
     directory_to_add = directory not in exsisting_paths
     if directory_to_add:
-        view_mode_db_path = db_scan.get_view_modes_db_path()
-        view_mode_db = sqlite3.connect(view_mode_db_path)
-        view_mode_db.set_trace_callback(log)
-        view_mode_db_cursor = view_mode_db.cursor()
         # inserisco il record sul db delle view mode
         insert_query = "INSERT INTO view (window, path, viewMode, sortMethod, sortOrder, sortAttributes, skin) VALUES (?,?,?,?,?,?,?)"
         insert_values = (10502, directory, view_mode, sort_method, 1, 0, skin_dir,)
-        view_mode_db_cursor.execute(insert_query, insert_values)
-        view_mode_db.commit()
-        view_mode_db_cursor.close()
-        view_mode_db.close()
+        db_scan.connect_and_execute_to_local_db(db_scan.view_modes_db, insert_query, insert_values)
 
 
 def force_confluence_wall_view_for_files(directory, exsisting_paths):
@@ -149,17 +124,11 @@ def force_confluence_wall_view_for_files(directory, exsisting_paths):
 
 
 def get_textures_path_by_url():
-    texture_db_path = db_scan.get_textures_db_path()
-    texture_db = sqlite3.connect(texture_db_path)
-    texture_db.set_trace_callback(log)
-    texture_db_cursor = texture_db.cursor()
     query = '''SELECT id, url, texture
                FROM path
                WHERE type = 'thumb' '''
-    results = texture_db_cursor.execute(query).fetchall()
-    texture_db_cursor.close()
-    texture_db.close()
-    return {url: (id, texture) for (id, url, texture) in results}
+    results = db_scan.connect_and_execute_to_local_db(db_scan.texture_db, query)
+    return {result['url']: (result['id'], result['texture']) for result in results}
 
 
 def get_paths_to_convert(albums_by_source):
@@ -186,48 +155,27 @@ def get_paths_to_convert(albums_by_source):
 
 
 def update_texture_path(dir_path, img_vfs_url, texture_by_dir):
-    texture_db_path = db_scan.get_textures_db_path()
-    texture_db = sqlite3.connect(texture_db_path)
-    texture_db.set_trace_callback(log)
-    texture_db_cursor = texture_db.cursor()
     update_query = "update path set texture= ? where id = ?"
+    insert_query = "insert into path (url, type, texture) values(?, ?, ?)"
     texture_path_result = texture_by_dir.get(dir_path)
     if not texture_path_result:
-        insert_query = "insert into path (url, type, texture) values(?, ?, ?)"
-        texture_db_cursor.execute(insert_query, (dir_path, 'thumb', img_vfs_url))
-        texture_db.commit()
+        db_scan.connect_and_execute_to_local_db(db_scan.texture_db, insert_query, (dir_path, 'thumb', img_vfs_url))
     elif texture_path_result[1] != img_vfs_url:
         id_texture_path = texture_path_result[0]
-        texture_db_cursor.execute(update_query, (img_vfs_url, id_texture_path,))
-        texture_db.commit()
-    texture_db_cursor.close()
-    texture_db.close()
+        db_scan.connect_and_execute_to_local_db(db_scan.texture_db, update_query, (img_vfs_url, id_texture_path,))
 
 
 def clean_texture_path():
-    music_db_path = db_scan.get_music_db_path()
-    music_db = sqlite3.connect(music_db_path)
-    music_db.set_trace_callback(log)
-    music_db_cursor = music_db.cursor()
     query = "SELECT strPath FROM path"
-    results = music_db_cursor.execute(query).fetchall()
-    music_db_cursor.close()
-    music_db.close()
+    results = db_scan.connect_and_execute_to_local_db(db_scan.music_db, query)
     valid_paths = set([strPath for (strPath,) in results if strPath is not None])
-    texture_db_path = db_scan.get_textures_db_path()
-    texture_db = sqlite3.connect(texture_db_path)
-    texture_db.set_trace_callback(log)
-    texture_db_cursor = texture_db.cursor()
     textures_paths_query = "SELECT url FROM path"
-    textures_results = texture_db_cursor.execute(textures_paths_query).fetchall()
+    textures_results = db_scan.connect_and_execute_to_local_db(db_scan.texture_db, textures_paths_query)
     textures_paths = set([url for (url,) in textures_results if url is not None])
     paths_to_remove = [(texture_path,) for texture_path in textures_paths if texture_path not in valid_paths]
     if paths_to_remove:
         delete_query = "DELETE FROM path WHERE url=? and type='thumb'"
-        texture_db_cursor.executemany(delete_query, paths_to_remove)
-        texture_db.commit()
-    texture_db_cursor.close()
-    texture_db.close()
+        db_scan.connect_and_execute_to_local_db(db_scan.texture_db, delete_query, paths_to_remove, True)
 
 
 def convert_to_thumb_view(paths_to_convert, use_webdav, id_albums, exec_mode, sources, texture_by_dir):
@@ -267,10 +215,6 @@ def get_kodi_image_path(art_url):
 def get_thumbs_to_cache(id_albums, exec_mode,
                         paths_by_id_album, use_webdav, sources):
     thumbs_to_cache = {}
-    translated_path = db_scan.get_music_db_path()
-    music_db = sqlite3.connect(translated_path)
-    music_db.set_trace_callback(log)
-    music_db_cursor = music_db.cursor()
     query = '''
             SELECT album.idAlbum, art.type AS artType, art.url
             FROM art
@@ -293,16 +237,14 @@ def get_thumbs_to_cache(id_albums, exec_mode,
     info_album_results = []
     if exec_mode == 'init':
         id_albums_subquery = 'SELECT idAlbum FROM album'
-        results.extend(music_db_cursor.execute(query % id_albums_subquery).fetchall())
-        info_album_results.extend(music_db_cursor.execute(info_album_query % id_albums_subquery).fetchall())
+        results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query % id_albums_subquery))
+        info_album_results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, info_album_query % id_albums_subquery))
     elif id_albums:
         chunks = [id_albums[i:i + 999] for i in range(0, len(id_albums), 999)]
         for chunk in chunks:
             placeholders = ','.join(['?'] * len(chunk))
-            results.extend(music_db_cursor.execute(query % placeholders, chunk).fetchall())
-            info_album_results.extend(music_db_cursor.execute(info_album_query % placeholders, chunk).fetchall())
-    music_db_cursor.close()
-    music_db.close()
+            results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query % placeholders, chunk))
+            info_album_results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, info_album_query % placeholders, chunk))
     if results:
         arts_by_id_album = {}
         for (idAlbum, artType, url) in results:
@@ -370,7 +312,6 @@ def get_album_common_path(song_paths, sources):
 
 
 def get_album_paths_by_id(id_albums, fetch_all_albums):
-    music_db_path = db_scan.get_music_db_path()
     query = '''
             SELECT DISTINCT song.idAlbum,
                             strPath,
@@ -384,21 +325,13 @@ def get_album_paths_by_id(id_albums, fetch_all_albums):
             ORDER BY strPath ASC'''
     id_albums_subquery = 'SELECT idAlbum FROM album'
     query_results = []
-    music_db = sqlite3.connect(music_db_path)
-    music_db.row_factory = sqlite3.Row
-    music_db.set_trace_callback(log)
-    music_db_cursor = music_db.cursor()
     if fetch_all_albums:
-        music_db_cursor.execute(query % id_albums_subquery)
-        query_results.extend(music_db_cursor.fetchall())
+        query_results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query % id_albums_subquery))
     elif id_albums:
         chunks = [id_albums[i:i + 999] for i in range(0, len(id_albums), 999)]
         for chunk in chunks:
             placeholders = ','.join(['?'] * len(chunk))
-            music_db_cursor.execute(query % placeholders, chunk)
-            query_results.extend(music_db_cursor.fetchall())
-    music_db_cursor.close()
-    music_db.close()
+            query_results.extend(db_scan.connect_and_execute_to_local_db(db_scan.music_db, query % placeholders, chunk))
     paths_by_album = {}
     if query_results:
         for result in query_results:
