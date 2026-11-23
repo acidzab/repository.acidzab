@@ -87,9 +87,12 @@ class Playlist:
     trailer: list[str] = field(default_factory=list)
 
 
-def song_entry(path: str, duration: int | None, artist: str | None, title: str | None) -> Entry:
+def song_entry(path: str, duration: int | None, track: int | None, artist: str | None,
+               title: str | None) -> Entry:
     label = " - ".join(part for part in (artist, title) if part)
     label = label.replace("\r", " ").replace("\n", " ")
+    if track and int(track) > 0:
+        label = f"{int(track):02d}. {label}"
     return Entry(path=path, directives=[f"#EXTINF:{int(duration or -1)},{label}"])
 
 

@@ -37,7 +37,7 @@ from resources.lib.playlist_file import ErrorCode, PlaylistError
 
 ADDON_ID = "plugin.audio.kodisubsonic"
 PLAYLIST_FOLDER = "special://profile/playlists/music/"
-SONG_PROPERTIES = ["file", "title", "displayartist", "duration"]
+SONG_PROPERTIES = ["file", "title", "displayartist", "duration", "track"]
 
 type Params = dict[str, str]
 
@@ -132,7 +132,7 @@ def _song_entries(song_ids: list[int]) -> list[playlist_file.Entry]:
         details = (by_index.get(index, {}).get("result") or {}).get("songdetails") or {}
         if not details.get("file"):
             raise PlaylistError(f"Brano non trovato: {song_id}", ErrorCode.NOT_FOUND)
-        entries.append(playlist_file.song_entry(details["file"], details.get("duration"),
+        entries.append(playlist_file.song_entry(details["file"], details.get("duration"), details.get("track"),
                                                 details.get("displayartist"), details.get("title")))
     return entries
 
