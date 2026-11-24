@@ -835,7 +835,7 @@ def align_media_to_central_db(paths, local_paths, exec_mode, db_params):
         update_artist_records(central_artists_by_mbid, local_artists_by_mbid, artists_to_update)
 
         progress.update(message='Allineo i cofanetti')
-        enforce_to_boxset(albums_id_local)
+        enforce_to_boxset(albums_id_local, exec_mode)
 
         progress.update(message='Allineo gli artwork')
         central_album_arts = get_artworks_by_key(albums_id_central, 'album', db_params, True)
@@ -1004,10 +1004,11 @@ def get_multi_discs_albums_info():
     return infos_by_id_album
 
 
-def get_boxset_status_by_album(id_albums):
+def get_boxset_status_by_album(id_albums, exec_mode):
     disc_infos_by_id_album = get_multi_discs_albums_info()
     boxset_status_by_id_album = {}
-    for id_album in id_albums:
+    id_albums_filtered = id_albums if not exec_mode == 'init' else disc_infos_by_id_album.keys()
+    for id_album in id_albums_filtered:
         disc_info = disc_infos_by_id_album.get(id_album)
         if disc_info:
             disc_titles = [info.get('disctitle') for info in disc_info]
@@ -1017,10 +1018,11 @@ def get_boxset_status_by_album(id_albums):
     return boxset_status_by_id_album
 
 
-def enforce_to_boxset(id_albums):
-    boxset_status_by_id_album = get_boxset_status_by_album(id_albums)
+def enforce_to_boxset(id_albums, exec_mode):
+    boxset_status_by_id_album = get_boxset_status_by_album(id_albums, exec_mode)
     album_update = 'UPDATE album SET bBoxedSet = 1 WHERE idAlbum = ?'
-    id_albums_to_update = [(id_album,) for id_album in id_albums if boxset_status_by_id_album.get(id_album)]
+    id_albums_filtered = id_albums if not exec_mode == 'init' else boxset_status_by_id_album.keys()
+    id_albums_to_update = [(id_album,) for id_album in id_albums_filtered if boxset_status_by_id_album.get(id_album)]
     if id_albums_to_update:
         with db_scan.open_local_db(db_scan.music_db) as sqlite_db:
             db_scan.execute_on_db(sqlite_db, album_update, id_albums_to_update, True)
