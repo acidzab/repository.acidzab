@@ -1,9 +1,11 @@
 import json
+import uuid
 
 import db_scan
 import requests
 import xbmc
 import xbmcaddon
+import xbmcgui
 from requests import auth
 
 headers = {
@@ -18,6 +20,12 @@ sse_auth = auth.HTTPBasicAuth(db_params.get('scanuser'), db_params.get('scanpass
 # Backoff tra i tentativi di riconnessione (secondi)
 initial_delay = 5
 max_delay = 60
+
+# Property sulla Home window (condivisa tra tutti gli interpreti Python di Kodi)
+# che identifica l'istanza attiva: l'ultima avviata subentra, le precedenti
+# se ne accorgono e chiudono la propria connessione SSE.
+home_window = xbmcgui.Window(10000)
+instance_property = 'service.scan.checker.instance'
 
 
 def log(msg):
@@ -46,6 +54,25 @@ def close_sse_channel(sse_channel):
         pass
 
 
+def claim_instance():
+    token = uuid.uuid4().hex
+    previous = home_window.getProperty(instance_property)
+    if previous:
+        log(f"Trovata istanza precedente ({previous}), subentro e la faccio terminare")
+    home_window.setProperty(instance_property, token)
+    return token
+
+
+def is_active_instance(token):
+    return home_window.getProperty(instance_property) == token
+
+
+def release_instance(token):
+    # libera la property solo se nel frattempo non è subentrata un'altra istanza
+    if is_active_instance(token):
+        home_window.clearProperty(instance_property)
+
+
 def handle_message(message):
     # Verifica che non ci sia già una scansione in corso
     if xbmc.getCondVisibility('Library.IsScanningMusic'):
@@ -72,15 +99,21 @@ def execute_service():
     log(addon_name)
     monitor = xbmc.Monitor()
     delay = initial_delay
+    token = claim_instance()
 
-    while not monitor.abortRequested():
+    def should_stop():
+        return monitor.abortRequested() or not is_active_instance(token)
+
+    while not should_stop():
         sse_channel = None
         try:
             sse_channel = open_sse_channel()
             delay = initial_delay  # connessione riuscita: reset del backoff
 
+            # il controllo avviene ad ogni riga, heartbeat compresi (ogni 5s),
+            # quindi un'istanza soppiantata chiude entro pochi secondi
             for line in sse_channel.iter_lines(decode_unicode=True):
-                if monitor.abortRequested():
+                if should_stop():
                     break
                 if not line:
                     continue
@@ -98,6 +131,9 @@ def execute_service():
                         continue
                     handle_message(message)
 
+            if not is_active_instance(token):
+                log("Subentrata una nuova istanza, chiudo la connessione")
+                break
             log("Stream chiuso dal server")
         except Exception as e:
             log(f"Errore ricezione SSE: {e}")
@@ -107,10 +143,14 @@ def execute_service():
 
         # attesa prima della riconnessione, interrompibile alla chiusura di Kodi
         log(f"Riconnessione con lo scan poller tra {delay}s")
-        if monitor.waitForAbort(delay):
-            break
+        waited = 0
+        while waited < delay and not should_stop():
+            if monitor.waitForAbort(1):
+                break
+            waited += 1
         delay = min(delay * 2, max_delay)
 
+    release_instance(token)
     log("Servizio terminato")
 
 
