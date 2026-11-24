@@ -834,6 +834,9 @@ def align_media_to_central_db(paths, local_paths, exec_mode, db_params):
                 central_artist['id'] = original_central_id_artist
         update_artist_records(central_artists_by_mbid, local_artists_by_mbid, artists_to_update)
 
+        progress.update(message='Allineo i cofanetti')
+        enforce_to_boxset(albums_id_local)
+
         progress.update(message='Allineo gli artwork')
         central_album_arts = get_artworks_by_key(albums_id_central, 'album', db_params, True)
         local_album_arts = get_artworks_by_key(albums_id_local, 'album', db_params, False)
@@ -977,6 +980,50 @@ def set_item_update(arts_to_insert, arts_to_update, arts_to_remove):
                     db_scan.execute_on_db(sqlite_db, album_update, media_ids, True)
                 elif media_type == 'song':
                     db_scan.execute_on_db(sqlite_db, song_update, media_ids, True)
+
+
+def get_multi_discs_albums_info():
+    infos_by_id_album = {}
+    query = '''
+            SELECT idAlbum,
+                   iTrack >> 16 AS disc,
+       MIN(strDiscSubtitle) AS discTitle
+            FROM song
+            WHERE strDiscSubtitle IS NOT NULL
+              AND strDiscSubtitle <> ''
+            GROUP BY idAlbum,
+                disc'''
+    results = db_scan.connect_and_execute_to_local_db(db_scan.music_db, query)
+    for result in results:
+        disc_titles = infos_by_id_album.get(result['idAlbum'])
+        if not disc_titles:
+            disc_titles = []
+        disc_title = {'discnumber': result['disc'], 'disctitle': result['discTitle']}
+        disc_titles.append(disc_title)
+        infos_by_id_album[result['idAlbum']] = disc_titles
+    return infos_by_id_album
+
+
+def get_boxset_status_by_album(id_albums):
+    disc_infos_by_id_album = get_multi_discs_albums_info()
+    boxset_status_by_id_album = {}
+    for id_album in id_albums:
+        disc_info = disc_infos_by_id_album.get(id_album)
+        if disc_info:
+            disc_titles = [info.get('disctitle') for info in disc_info]
+            disc_titles_set = {info.get('disctitle') for info in disc_info}
+            is_boxset = len(disc_info) >= 3 and len(disc_titles) == len(disc_titles_set)
+            boxset_status_by_id_album[id_album] = is_boxset
+    return boxset_status_by_id_album
+
+
+def enforce_to_boxset(id_albums):
+    boxset_status_by_id_album = get_boxset_status_by_album(id_albums)
+    album_update = 'UPDATE album SET bBoxedSet = 1 WHERE idAlbum = ?'
+    id_albums_to_update = [(id_album,) for id_album in id_albums if boxset_status_by_id_album.get(id_album)]
+    if id_albums_to_update:
+        with db_scan.open_local_db(db_scan.music_db) as sqlite_db:
+            db_scan.execute_on_db(sqlite_db, album_update, id_albums_to_update, True)
 
 
 def process_media_art_with_batching(db_params, central_album_arts, local_album_arts,
