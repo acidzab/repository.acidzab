@@ -15,13 +15,15 @@ Azioni:
 `songs`/`add` sono ID di brani Kodi separati da virgola, `remove` indici (base 0) separati da virgola.
 Non serve per la consultazione da interfaccia: aperto da Kodi senza action non mostra niente.
 
-La cartella delle playlist può essere rimappata da Kodi (ad esempio su una condivisione smb://). Elenco, Stat e
-scrittura sul percorso special:// seguono la rimappatura, ma xbmcvfs.File in lettura no: apre il percorso locale
-(/data/.kodi/userdata/...) e restituisce vuoto. Il plugin ricava quindi il percorso reale della cartella da
-Files.GetDirectory sulla cartella special:// e fa tutte le operazioni su quello.
+La cartella delle playlist può essere rimappata con <pathsubstitution>. Kodi converte il <from> in percorso assoluto
+quando carica advancedsettings.xml, quindi la regola scatta solo sul percorso già tradotto (/data/.kodi/userdata/...),
+non sul testo special://. Su Kodi 22 RC2 xbmcvfs.File in lettura su special:// restituisce 0 byte (Stat ed elenco
+invece funzionano), mentre sul percorso tradotto tutte le operazioni seguono la rimappatura. Il plugin lavora quindi
+su xbmcvfs.translatePath() della cartella: nessuna chiamata JSON-RPC né cache, e l'elenco si legge sempre dal vivo.
 """
 import json
 import sys
+import time
 import traceback
 from collections.abc import Callable
 from typing import Any
@@ -42,31 +44,13 @@ SONG_PROPERTIES = ["file", "title", "displayartist", "duration", "track"]
 type Params = dict[str, str]
 
 
-def _json_rpc(method: str, params: dict) -> dict:
-    response = json.loads(xbmc.executeJSONRPC(json.dumps({"jsonrpc": "2.0", "id": 1, "method": method,
-                                                           "params": params})))
-    return response.get("result") or {}
-
-
-def _real_folder(folder: str) -> str:
-    """
-    Percorso reale della cartella (es. smb://...): Files.GetDirectory restituisce i file con il percorso dopo le
-    sostituzioni di Kodi. Con la cartella vuota non c'è niente da leggere e si resta sul percorso special://.
-    """
-    for item in _json_rpc("Files.GetDirectory", {"directory": folder, "media": "files"}).get("files") or []:
-        path = (item.get("file") or "").rstrip("/")
-        if "/" in path and not path.startswith(folder):
-            return path.rsplit("/", 1)[0] + "/"
-    return folder
-
-
 class KodiStorage:
-    """Storage sul VFS di Kodi (playlist_file.Storage), sul percorso reale della cartella delle playlist."""
+    """Storage sul VFS di Kodi (playlist_file.Storage), sul percorso tradotto della cartella delle playlist."""
 
     def __init__(self, folder: str = PLAYLIST_FOLDER):
-        if not xbmcvfs.exists(folder):
-            xbmcvfs.mkdirs(folder)
-        self.folder = _real_folder(folder)
+        self.folder = xbmcvfs.translatePath(folder)
+        if not xbmcvfs.exists(self.folder):
+            xbmcvfs.mkdirs(self.folder)
         xbmc.log(f"[{ADDON_ID}] cartella delle playlist: {folder} -> {self.folder}", xbmc.LOGDEBUG)
 
     def _path(self, name: str) -> str:
@@ -194,6 +178,7 @@ def _respond(handle: int, payload: dict) -> None:
 
 def _run(params: Params) -> dict:
     action = params.get("action", "")
+    started = time.perf_counter()
     try:
         if (handler := ACTIONS.get(action)) is None:
             raise PlaylistError(f"Azione sconosciuta: {action}")
@@ -203,6 +188,8 @@ def _run(params: Params) -> dict:
     except Exception as exc:  # l'errore deve arrivare al gateway, non solo al log di Kodi
         xbmc.log(f"[{ADDON_ID}] {traceback.format_exc()}", xbmc.LOGERROR)
         return {"ok": False, "code": int(ErrorCode.GENERIC), "error": f"Errore interno del plugin: {exc}"}
+    finally:
+        xbmc.log(f"[{ADDON_ID}] {action}: {(time.perf_counter() - started) * 1000:.0f} ms", xbmc.LOGINFO)
 
 
 def main() -> None:

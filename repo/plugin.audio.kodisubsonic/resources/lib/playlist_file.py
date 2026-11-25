@@ -191,9 +191,17 @@ def remove_indices(playlist: Playlist, indices: Iterable[int]) -> None:
 
 # --- File ---
 
+def _temp_name(file_name: str) -> str:
+    return f".{file_name}.tmp"
+
+
 def _require(storage: Storage, file_name: str | None) -> str:
     file_name = validate_file_name(file_name)
     if not storage.exists(file_name):
+        # Scrittura interrotta tra l'eliminazione del vecchio file e la rinomina del temporaneo: si recupera
+        if storage.exists(temp := _temp_name(file_name)):
+            storage.rename(temp, file_name)
+            return file_name
         raise PlaylistError(f"Playlist non trovata: {file_name}", ErrorCode.NOT_FOUND)
     return file_name
 
@@ -205,24 +213,17 @@ def read(storage: Storage, file_name: str | None) -> Playlist:
 
 def write(storage: Storage, file_name: str, playlist: Playlist) -> None:
     """
-    Scrittura sicura anche su condivisioni di rete, dove rinominare sopra un file esistente non è garantito:
-    file temporaneo, il vecchio file diventa un backup, il temporaneo prende il suo posto, il backup si elimina.
+    Scrittura sicura anche su condivisioni di rete, dove rinominare sopra un file esistente non è garantito, con il
+    minimo di operazioni (ognuna è un giro sulla rete): il contenuto va in un file temporaneo, il vecchio file si
+    elimina e il temporaneo prende il suo posto. Se la rinomina non riesce il contenuto resta nel temporaneo, che
+    _require recupera alla lettura successiva.
     """
     file_name = validate_file_name(file_name)
-    temp, backup = f".{file_name}.tmp", f".{file_name}.bak"
+    temp = _temp_name(file_name)
     storage.write_bytes(temp, dump(playlist).encode("utf-8"))
-    if not storage.exists(file_name):
-        storage.rename(temp, file_name)
-        return
-    if storage.exists(backup):
-        storage.delete(backup)
-    storage.rename(file_name, backup)
-    try:
-        storage.rename(temp, file_name)
-    except Exception:
-        storage.rename(backup, file_name)
-        raise
-    storage.delete(backup)
+    if storage.exists(file_name):
+        storage.delete(file_name)
+    storage.rename(temp, file_name)
 
 
 def save(storage: Storage, file_name: str, playlist: Playlist, current: str | None = None) -> None:
